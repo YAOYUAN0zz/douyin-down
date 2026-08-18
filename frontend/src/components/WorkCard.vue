@@ -40,6 +40,7 @@ function tierParam(label: string): string {
     @keydown.space.prevent="$emit('toggle')"
     @keydown.enter.prevent="$emit('toggle')"
   >
+    <!-- 左：封面 -->
     <div class="cover-wrap">
       <img
         v-if="item.cover"
@@ -59,31 +60,26 @@ function tierParam(label: string): string {
         @update:checked="$emit('toggle')"
       />
 
-      <div class="cover-overlay">
-        <span class="overlay-stats">
-          <span v-if="item.stats.play_count">▶ {{ formatCount(item.stats.play_count) }}</span>
-          <span>♥ {{ formatCount(item.stats.digg_count) }}</span>
-        </span>
-        <span class="overlay-badge">
-          {{
-            item.media_type === "images"
-              ? `图集 ${item.image_count} 张`
-              : formatDuration(item.duration_seconds)
-          }}
-        </span>
-      </div>
+      <span class="cover-badge">
+        {{
+          item.media_type === "images"
+            ? `图集 ${item.image_count} 张`
+            : formatDuration(item.duration_seconds)
+        }}
+      </span>
     </div>
 
+    <!-- 右：信息 + 画质行 -->
     <div class="body">
       <div class="desc" :title="item.desc">{{ item.desc || "（无描述）" }}</div>
       <div class="meta">
         <span class="meta-author">{{ item.author }}</span>
-        <span v-if="item.create_time" class="meta-date">{{
-          formatUnixDate(item.create_time)
-        }}</span>
+        <span v-if="item.create_time">{{ formatUnixDate(item.create_time) }}</span>
+        <span v-if="item.stats.play_count">▶ {{ formatCount(item.stats.play_count) }}</span>
+        <span>♥ {{ formatCount(item.stats.digg_count) }}</span>
+        <span>💬 {{ formatCount(item.stats.comment_count) }}</span>
       </div>
 
-      <!-- 每个画质档一行，行尾直接下载 -->
       <div v-if="item.qualities.length" class="tiers">
         <button
           v-for="q in item.qualities"
@@ -110,8 +106,8 @@ function tierParam(label: string): string {
           <span class="tier-action">⬇ 下载</span>
         </button>
       </div>
-      <div v-else class="tiers">
-        <n-button size="small" type="primary" block @click.stop="$emit('download', undefined)">
+      <div v-else class="tiers tiers-single">
+        <n-button size="small" type="primary" @click.stop="$emit('download', undefined)">
           ⬇ 下载{{ item.media_type === "images" ? "图集" : "" }}
         </n-button>
       </div>
@@ -121,6 +117,7 @@ function tierParam(label: string): string {
 
 <style scoped>
 .work-card {
+  display: flex;
   border: 1px solid var(--dd-border);
   border-radius: 12px;
   background: var(--dd-card-bg);
@@ -129,24 +126,23 @@ function tierParam(label: string): string {
   outline-offset: 2px;
   transition:
     box-shadow 0.15s ease,
-    transform 0.15s ease,
     border-color 0.15s ease;
 }
 .work-card:hover {
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 .work-card.selected {
   border-color: #2080f0;
-  box-shadow:
-    0 0 0 2px rgba(32, 128, 240, 0.35),
-    0 6px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 0 2px rgba(32, 128, 240, 0.35);
 }
 
+/* 左侧封面：固定宽度，3:4 */
 .cover-wrap {
   position: relative;
+  flex: 0 0 132px;
   aspect-ratio: 3 / 4;
   background: var(--dd-border);
+  align-self: stretch;
 }
 .cover {
   width: 100%;
@@ -170,30 +166,22 @@ function tierParam(label: string): string {
   border-radius: 4px;
   padding: 2px;
 }
-.cover-overlay {
+.cover-badge {
   position: absolute;
-  inset-inline: 0;
-  bottom: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  padding: 20px var(--dd-space-2) var(--dd-space-1);
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.65));
+  right: var(--dd-space-2);
+  bottom: var(--dd-space-2);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 12px;
-}
-.overlay-stats {
-  display: flex;
-  gap: var(--dd-space-2);
-}
-.overlay-badge {
-  background: rgba(0, 0, 0, 0.45);
   border-radius: 4px;
-  padding: 0 6px;
+  padding: 1px 6px;
+  font-size: 11px;
 }
 
+/* 右侧信息区 */
 .body {
-  padding: var(--dd-space-2) var(--dd-space-3) var(--dd-space-3);
+  flex: 1;
+  min-width: 0;
+  padding: var(--dd-space-3);
   display: flex;
   flex-direction: column;
   gap: var(--dd-space-2);
@@ -206,32 +194,33 @@ function tierParam(label: string): string {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  min-height: 2.9em;
 }
 .meta {
   display: flex;
-  justify-content: space-between;
-  gap: var(--dd-space-2);
+  gap: var(--dd-space-3);
   color: var(--dd-text-secondary);
   font-size: 12px;
+  flex-wrap: wrap;
 }
 .meta-author {
+  max-width: 12em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.meta-date {
-  flex-shrink: 0;
-}
 
 .tiers {
+  margin-top: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
+.tiers-single {
+  align-items: flex-start;
+}
 .tier {
   display: grid;
-  grid-template-columns: 44px 1fr auto auto;
+  grid-template-columns: 48px 1fr auto 64px;
   align-items: center;
   gap: var(--dd-space-2);
   border: 1px solid var(--dd-border);
@@ -239,7 +228,7 @@ function tierParam(label: string): string {
   background: transparent;
   color: var(--dd-text-secondary);
   font-size: 12px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   cursor: pointer;
   text-align: left;
   transition:
@@ -267,7 +256,7 @@ function tierParam(label: string): string {
   text-align: right;
 }
 .tier-action {
-  color: var(--dd-text-secondary);
+  text-align: right;
 }
 .tier-original .tier-label {
   color: #2080f0;

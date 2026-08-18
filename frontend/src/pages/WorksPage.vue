@@ -181,7 +181,7 @@ const SOURCE_LABEL: Record<string, string> = {
       </template>
 
       <div v-else-if="loading" class="works-grid">
-        <n-skeleton v-for="i in 8" :key="i" height="300px" :sharp="false" />
+        <n-skeleton v-for="i in 8" :key="i" height="180px" :sharp="false" />
       </div>
 
       <n-empty
@@ -195,7 +195,12 @@ const SOURCE_LABEL: Record<string, string> = {
 <style scoped>
 .works-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: var(--dd-space-4);
+}
+@media (max-width: 480px) {
+  .works-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>
