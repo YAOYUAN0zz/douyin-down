@@ -338,7 +338,7 @@ python run.py --serve --serve-port 8000
 | POST | `/api/v1/download` | 提交 `{"url", "video_quality"?}`，返回 `{job_id, status}` |
 | POST | `/api/v1/download/batch` | 批量提交 `{"urls", "video_quality"?}`（单次上限 100） |
 | POST | `/api/v1/works/list` | 预览作品列表 `{"url", "cursor", "count"}`，条目含全部画质档 |
-| GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数 |
+| GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数/实时进度（`progress` 字段） |
 | GET | `/api/v1/jobs` | 列出最近的 job（按 TTL + 容量剪裁） |
 | GET | `/api/v1/auth/status` | 下载参数（cookie/msToken）就绪状态与缺失项 |
 | POST | `/api/v1/auth/fetch` | 启动浏览器登录并自动抓取下载参数（需 playwright） |
@@ -356,6 +356,8 @@ python run.py --serve --serve-port 8000
 - **提交下载**：粘贴视频/图集/主页/合集链接，实时查看任务状态；
 - **作品列表按需下载**：输入主页/合集/音乐链接先「获取列表」（封面/描述/类型/发布时间/点赞，
   支持分页加载更多），勾选后仅下载选中的作品；
+- **实时下载进度**：运行中任务显示当前步骤、作者、已完成/总作品数，以及当前文件的
+  字节级进度条（已下载/总大小/百分比）；
 - **画质可见可选**：列表「画质」列展示每个作品的全部可用档位（悬停看分辨率/大小/码率），
   提交下载时可选画质（原画/最高/1440p~360p/最低，默认跟随配置 `video_quality`），
   仅作用于该次任务，不改全局配置；

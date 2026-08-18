@@ -19,7 +19,7 @@ def _make_app(tmp_path):
     config.update(path=str(tmp_path))
     app = build_app(config)
 
-    async def fake_executor(url: str, options=None) -> Dict[str, int]:
+    async def fake_executor(job) -> Dict[str, int]:
         return {"total": 1, "success": 1, "failed": 0, "skipped": 0}
 
     app.state.job_manager.executor = fake_executor

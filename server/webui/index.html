@@ -43,6 +43,12 @@
     font-size: 14px; background: var(--card); color: var(--text);
   }
   .quality-cell { font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .pbar {
+    width: 140px; height: 6px; background: var(--border); border-radius: 3px;
+    overflow: hidden; margin-top: 4px;
+  }
+  .pbar > div { height: 100%; background: var(--primary); transition: width .5s; }
+  .progress-text { font-size: 12px; color: var(--muted); }
   .badge {
     display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
     padding: 2px 10px; font-size: 12px; border: 1px solid var(--border);
@@ -504,6 +510,7 @@
     jobs.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
     var rows = jobs.map(function (j) {
       var stats = j.total ? (j.success + "/" + j.total + (j.skipped ? "（跳过 " + j.skipped + "）" : "")) : "-";
+      if (j.status === "running") stats = renderJobProgress(j);
       var err = j.error ? '<div class="status-failed">' + escapeHtml(j.error) + "</div>" : "";
       var qualityTag = (j.options && j.options.video_quality)
         ? ' <span class="quality-cell">[' + escapeHtml(j.options.video_quality) + "]</span>"
@@ -516,8 +523,32 @@
         "</tr>";
     }).join("");
     area.innerHTML =
-      "<table><thead><tr><th>链接</th><th>状态</th><th>成功/总数</th><th>创建时间</th></tr></thead>" +
+      "<table><thead><tr><th>链接</th><th>状态</th><th>进度</th><th>创建时间</th></tr></thead>" +
       "<tbody>" + rows + "</tbody></table>";
+  }
+
+  function renderJobProgress(j) {
+    var p = j.progress || {};
+    var parts = [];
+    var head = "";
+    if (p.items_total) {
+      head = p.items_done + "/" + p.items_total;
+    }
+    var stepText = [p.step, p.detail].filter(Boolean).join(" · ");
+    if (p.author) stepText = p.author + (stepText ? " · " + stepText : "");
+    var html = head ? "<div>" + escapeHtml(head) + "</div>" : "";
+    if (stepText) html += '<div class="progress-text">' + escapeHtml(stepText) + "</div>";
+    var cur = p.current;
+    if (cur && cur.bytes_total > 0) {
+      var pct = Math.min(100, Math.round(cur.bytes_read / cur.bytes_total * 100));
+      html += '<div class="pbar"><div style="width:' + pct + '%"></div></div>' +
+        '<div class="progress-text">' +
+        formatBytes(cur.bytes_read) + " / " + formatBytes(cur.bytes_total) +
+        "（" + pct + "%）</div>";
+    } else if (cur && cur.bytes_read > 0) {
+      html += '<div class="progress-text">已下载 ' + formatBytes(cur.bytes_read) + "</div>";
+    }
+    return html || '<span class="progress-text">准备中……</span>';
   }
 
   function refreshJobs() {
@@ -542,7 +573,7 @@
   // 初始化
   refreshAuthStatus();
   refreshJobs();
-  setInterval(refreshJobs, 3000);
+  setInterval(refreshJobs, 2000);
   // 页面加载时若已有获取会话在跑（例如刷新页面），恢复轮询
   api("/auth/fetch/status").then(function (data) {
     if (data.status === "running") { setFlowRunning(true); startFlowPolling(); }

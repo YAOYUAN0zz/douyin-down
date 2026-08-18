@@ -11,7 +11,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-JobExecutor = Callable[[str, Optional[Dict[str, Any]]], Awaitable[Dict[str, int]]]
+JobExecutor = Callable[["DownloadJob"], Awaitable[Dict[str, int]]]
 
 
 def _now_iso() -> str:
@@ -45,6 +45,16 @@ class DownloadJob:
         self.failed = 0
         self.skipped = 0
         self.error: Optional[str] = None
+        # 实时进度：由 JobProgressReporter 从下载器回调写入，随 /jobs 轮询下发
+        self.progress: Dict[str, Any] = {
+            "step": "",
+            "detail": "",
+            "items_total": 0,
+            "items_done": 0,
+            "current": None,  # {"aweme_id", "bytes_read", "bytes_total"}
+            "output_dir": None,
+            "author": None,
+        }
         self._task: Optional[asyncio.Task] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -61,7 +71,48 @@ class DownloadJob:
             "failed": self.failed,
             "skipped": self.skipped,
             "error": self.error,
+            "progress": dict(self.progress, current=self.progress.get("current")),
         }
+
+
+class JobProgressReporter:
+    """把下载器的进度回调写进 DownloadJob，供 /jobs 轮询展示。
+
+    实现 core.downloader_base.ProgressReporter 协议及其可选扩展回调
+    （on_item_progress / on_output_dir / on_author）。所有方法都在事件循环
+    线程内被同步调用，直接改 job 字段即可，无需加锁。
+    """
+
+    def __init__(self, job: "DownloadJob"):
+        self.job = job
+
+    def update_step(self, step: str, detail: str = "") -> None:
+        self.job.progress["step"] = step
+        self.job.progress["detail"] = detail
+
+    def set_item_total(self, total: int, detail: str = "") -> None:
+        self.job.progress["items_total"] = int(total or 0)
+        if detail:
+            self.job.progress["detail"] = detail
+
+    def advance_item(self, status: str, detail: str = "") -> None:
+        self.job.progress["items_done"] = int(self.job.progress.get("items_done") or 0) + 1
+        # 一条作品收尾后清掉字节进度，避免下一条开始前显示旧文件的数字
+        self.job.progress["current"] = None
+
+    def on_item_progress(self, *, aweme_id: str, bytes_read: int, bytes_total: int) -> None:
+        self.job.progress["current"] = {
+            "aweme_id": aweme_id,
+            "bytes_read": int(bytes_read or 0),
+            "bytes_total": int(bytes_total or 0),
+        }
+
+    def on_output_dir(self, *, path: str) -> None:
+        self.job.progress["output_dir"] = path
+
+    def on_author(self, *, nickname: Optional[str] = None, sec_uid: Optional[str] = None) -> None:
+        if nickname:
+            self.job.progress["author"] = nickname
 
 
 class JobManager:
@@ -139,7 +190,7 @@ class JobManager:
             job.status = JobStatus.RUNNING
             job.started_at = _now_iso()
             try:
-                counts = await self.executor(job.url, job.options)
+                counts = await self.executor(job)
                 job.total = int(counts.get("total", 0))
                 job.success = int(counts.get("success", 0))
                 job.failed = int(counts.get("failed", 0))

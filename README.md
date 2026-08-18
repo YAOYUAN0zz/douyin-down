@@ -348,7 +348,7 @@ Endpoints:
 | POST | `/api/v1/download` | Submit `{"url", "video_quality"?}`, returns `{job_id, status}` |
 | POST | `/api/v1/download/batch` | Batch submit `{"urls", "video_quality"?}` (max 100 per call) |
 | POST | `/api/v1/works/list` | Preview a works list `{"url", "cursor", "count"}`; items include all quality tiers |
-| GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts |
+| GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts/live progress (`progress` field) |
 | GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
 | GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
 | POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters (requires playwright) |
@@ -364,6 +364,7 @@ After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 
 - **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
 - **Pick-and-download from a works list:** enter a profile/mix/music link, fetch the list first (cover, description, type, publish date, likes, with load-more pagination), then download only the checked items.
+- **Live download progress:** running jobs show the current step, author, finished/total item counts, and a byte-level progress bar for the file being downloaded.
 - **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
 - **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.

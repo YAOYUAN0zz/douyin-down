@@ -22,7 +22,7 @@ from config import ConfigLoader
 from control import QueueManager, RateLimiter, RetryHandler
 from core import DouyinAPIClient, DownloaderFactory, LoginRequiredError, URLParser
 from server.auth_flow import BrowserAuthFlow
-from server.jobs import JobManager
+from server.jobs import DownloadJob, JobManager, JobProgressReporter
 from server.works import DEFAULT_PAGE_COUNT, WorksListError, list_works
 from storage import FileManager
 from tools.cookie_fetcher import REQUIRED_KEYS
@@ -135,7 +135,12 @@ class _ServerDeps:
 
 
 async def _execute_download(
-    url: str, deps: "_ServerDeps", options: Optional[Dict[str, Any]] = None
+    url: str,
+    deps: "_ServerDeps",
+    options: Optional[Dict[str, Any]] = None,
+    *,
+    progress_reporter: Optional[Any] = None,
+    job_id: Optional[str] = None,
 ) -> Dict[str, int]:
     """简化版 download_url：只负责执行并返回成功/失败计数。
 
@@ -174,7 +179,8 @@ async def _execute_download(
             deps.rate_limiter,
             deps.retry_handler,
             deps.queue_manager,
-            progress_reporter=None,
+            progress_reporter=progress_reporter,
+            job_id=job_id,
         )
         if downloader is None:
             raise RuntimeError(f"No downloader for url_type={parsed['type']}")
@@ -191,8 +197,14 @@ async def _execute_download(
 def build_app(config: ConfigLoader) -> FastAPI:
     deps = _ServerDeps(config)
 
-    async def executor(url: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, int]:
-        return await _execute_download(url, deps, options)
+    async def executor(job: DownloadJob) -> Dict[str, int]:
+        return await _execute_download(
+            job.url,
+            deps,
+            job.options,
+            progress_reporter=JobProgressReporter(job),
+            job_id=job.job_id,
+        )
 
     server_cfg = config.get("server") or {}
     if not isinstance(server_cfg, dict):
