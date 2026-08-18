@@ -66,6 +66,41 @@ def test_auth_status_ready_when_all_required_present(tmp_path):
         assert data["has_session"] is True
 
 
+def test_disk_cookies_survive_restart_over_config_cookies(tmp_path):
+    """自动获取写盘的 cookie 不应在重启时被 config 内嵌 cookies 覆盖。"""
+    import json
+
+    cookie_file = tmp_path / ".cookies.json"
+    fresh = {"msToken": "fresh", "ttwid": "fresh", "sessionid": "fresh"}
+    cookie_file.write_text(json.dumps(fresh), encoding="utf-8")
+
+    config = ConfigLoader(None)
+    config.update(path=str(tmp_path), cookies={"msToken": "stale", "ttwid": "stale"})
+    config.config_path = str(tmp_path / "config.yml")
+
+    app = build_app(config)
+    assert app.state.deps.cookie_manager.get_cookies() == fresh
+    # 磁盘文件未被覆盖
+    assert json.loads(cookie_file.read_text(encoding="utf-8")) == fresh
+
+
+def test_config_cookies_seed_first_run(tmp_path):
+    """首次运行（无 cookie 文件）时，config 内嵌 cookies 作为种子导入并落盘。"""
+    import json
+
+    config = ConfigLoader(None)
+    config.update(path=str(tmp_path), cookies={"msToken": "seed", "ttwid": "seed"})
+    config.config_path = str(tmp_path / "config.yml")
+
+    app = build_app(config)
+    assert app.state.deps.cookie_manager.get_cookies() == {"msToken": "seed", "ttwid": "seed"}
+    cookie_file = tmp_path / ".cookies.json"
+    assert json.loads(cookie_file.read_text(encoding="utf-8")) == {
+        "msToken": "seed",
+        "ttwid": "seed",
+    }
+
+
 def test_auth_fetch_confirm_without_session_returns_409(tmp_path):
     app = _make_app(tmp_path)
     with TestClient(app) as client:

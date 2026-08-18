@@ -117,17 +117,15 @@ class _ServerDeps:
         else:
             cookie_file = ".cookies.json"
         self.cookie_manager = CookieManager(cookie_file=cookie_file)
-        # Load cookies from the config (env var / YAML cookie key) first, then
-        # fall back to whatever is already on disk in the cookie file. This
-        # ensures that cookies saved by a previous session are picked up on
-        # restart even when the config doesn't embed them inline.
-        initial_cookies = config.get_cookies()
-        if initial_cookies:
-            self.cookie_manager.set_cookies(initial_cookies)
-        else:
-            # Trigger a load from disk so get_cookies() returns the persisted
-            # session without requiring a fresh login on every app restart.
-            self.cookie_manager.get_cookies()
+        # 磁盘 cookie 文件优先：它是「活的」会话存储（Web UI 自动获取 / CLI
+        # 重登都写它）。若启动时反过来用 config 内嵌 cookies 覆盖它，上一次
+        # 登录抓到的新鲜会话会被 config.yml 里的陈旧值清掉。config 内嵌
+        # cookies 只在首次运行（cookie 文件还不存在/为空）时作为种子导入。
+        disk_cookies = self.cookie_manager.get_cookies()
+        if not disk_cookies:
+            initial_cookies = config.get_cookies()
+            if initial_cookies:
+                self.cookie_manager.set_cookies(initial_cookies)
         self.file_manager = FileManager(config.get("path"))
         self.rate_limiter = RateLimiter(max_per_second=float(config.get("rate_limit", 2) or 2))
         self.retry_handler = RetryHandler(max_retries=int(config.get("retry_times", 3) or 3))

@@ -366,6 +366,10 @@ python run.py --serve --serve-port 8000
 - **自动获取参数**：点击按钮后服务器打开浏览器窗口，完成抖音登录即**自动检测并保存** cookie 与
   msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认。
 
+抓取到的参数持久化在 `.cookies.json`（与 `config.yml` 同目录），服务重启后继续生效；
+`config.yml` 内嵌的 `cookies:` 仅在首次运行（尚无 `.cookies.json`）时作为种子导入，
+之后以 `.cookies.json` 为准，不会被 config 里的旧值覆盖。
+
 自动获取依赖 Playwright：
 
 ```bash

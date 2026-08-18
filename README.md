@@ -369,6 +369,8 @@ After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
 - **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
 
+Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
+
 Auto fetch requires Playwright (`pip install playwright && playwright install chromium`). Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
 
 ### Send a notification on completion
