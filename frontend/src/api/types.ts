@@ -76,6 +76,8 @@ export interface WorkItem {
   tags: string[];
   music_title: string;
   qualities: QualityTier[];
+  /** 历史库去重命中（后端数据库关闭时恒为 false） */
+  downloaded: boolean;
 }
 
 export interface WorksPage {
@@ -83,6 +85,57 @@ export interface WorksPage {
   items: WorkItem[];
   has_more: boolean;
   cursor: number;
+}
+
+/** 历史记录条目（后端 aweme 表投影；时间为 unix 秒） */
+export interface HistoryItem {
+  aweme_id: string;
+  aweme_type: string;
+  title: string | null;
+  author_id: string | null;
+  author_name: string | null;
+  author_sec_uid: string | null;
+  create_time: number | null;
+  download_time: number | null;
+  /** 落盘目录 */
+  file_path: string | null;
+  cover_urls: string[];
+  job_id: string;
+}
+
+export interface HistoryDetail extends HistoryItem {
+  /** 下载时捕获的完整作品 JSON；解析失败为 null */
+  metadata: Record<string, unknown> | null;
+}
+
+export interface HistoryPage {
+  items: HistoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface TopAuthor {
+  sec_uid: string;
+  author_name: string;
+  download_count: number;
+}
+
+export interface HistoryStats {
+  total: number;
+  top_authors_7d: TopAuthor[];
+  top_authors_30d: TopAuthor[];
+}
+
+export interface HistoryQuery {
+  query?: string;
+  author?: string;
+  aweme_type?: string;
+  author_sec_uid?: string;
+  job_id?: string;
+  sort?: "download_time" | "create_time";
+  page?: number;
+  page_size?: number;
 }
 
 export interface AuthStatus {

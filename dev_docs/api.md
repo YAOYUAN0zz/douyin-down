@@ -28,6 +28,7 @@
 | 42200 | 422 | 请求体校验失败 |
 | 50000 | 500 | 未分类服务端错误 |
 | 50200 | 502 | 抖音上游接口异常（上游其他状态 N 映射为 N×100） |
+| 50300 | 503 | 数据库未启用（`config.database=false`），历史类端点不可用 |
 
 ## 端点清单（前缀 `/api/v1`）
 
@@ -52,7 +53,7 @@
 |---|---|---|---|
 | POST | `/works/list` | `{url, cursor=0, count=20}`（count≤50） | `{source_type, items[], has_more, cursor}` |
 
-`items[]` 字段见 `frontend/src/api/types.ts` 的 `WorkItem`（封面/描述/统计/话题/音乐/逐档画质 `qualities[]` 等）。
+`items[]` 字段见 `frontend/src/api/types.ts` 的 `WorkItem`（封面/描述/统计/话题/音乐/逐档画质 `qualities[]` 等）。每项附带 `downloaded: boolean`（历史库去重命中，数据库关闭时恒为 `false`），前端据此显示「已下载」角标。
 
 ### 任务
 
@@ -68,6 +69,16 @@
 
 任务状态机：`pending → running → success / partial / failed / cancelled`（partial=部分条目失败）。终态任务持久化到 SQLite（`config.database` 开启时，默认开启），服务重启后自动恢复；下载去重/历史与 CLI 对齐启用。
 
+### 历史记录
+
+| Method | Path | 说明 / data |
+|---|---|---|
+| GET | `/history?query=&author=&aweme_type=&author_sec_uid=&job_id=&sort=&page=&page_size=` | `{items: HistoryItem[], total, page, page_size}`。`query` 为标题子串（大小写不敏感），`author` 为作者名子串，`author_sec_uid`/`job_id` 精确匹配；`aweme_type` ∈ video/gallery/music/live_replay；`sort` ∈ `download_time`（默认，下载时间倒序）/`create_time`（发布时间倒序）；`page_size` 取值 1~100（默认 20） |
+| GET | `/history/stats?limit=` | `{total, top_authors_7d[], top_authors_30d[]}`，作者项为 `{sec_uid, author_name, download_count}`；`limit` 取值 1~50（默认 10） |
+| GET | `/history/{aweme_id}` | 单条详情，在列表字段基础上附 `metadata`（下载时捕获的完整作品 JSON，解析失败为 `null`）；不存在 → 404/40400 |
+
+`HistoryItem`：`{aweme_id, aweme_type, title, author_id, author_name, author_sec_uid, create_time, download_time, file_path, cover_urls[], job_id}`。时间为 unix 秒，`file_path` 为落盘目录。数据来源是下载成功后写入的 `aweme` 表，只统计有落盘产物（`file_path` 非空）的记录；`config.database=false` 时三个端点均返回 503/50300。
+
 ### 下载参数（auth）
 
 | Method | Path | 说明 |
@@ -80,4 +91,4 @@
 
 ## 规划中的端点（见 `webui-redesign-report.md` §5）
 
-M3：`GET/PUT /settings`、`/resolve`；M4：`/history*`、通知测试。（发现/直播录制已按用户决定砍掉，不做 Web 化。）
+M3：`GET/PUT /settings`、`/resolve`；M4 剩余：server 侧通知派发与 `/notifications/test`。（发现/直播录制已按用户决定砍掉，不做 Web 化。）

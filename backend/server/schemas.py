@@ -28,6 +28,7 @@ CODE_CONFLICT = 40900  # 状态冲突（auth 会话已存在/不存在）
 CODE_VALIDATION = 42200  # 请求体校验失败（FastAPI RequestValidationError）
 CODE_INTERNAL = 50000  # 未分类服务端错误
 CODE_UPSTREAM_ERROR = 50200  # 抖音上游接口异常
+CODE_DB_DISABLED = 50300  # 数据库未启用（config.database=false），历史类端点不可用
 
 
 class ApiError(Exception):

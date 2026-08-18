@@ -34,6 +34,12 @@ export function formatUnixDate(seconds: number | undefined | null): string {
   return new Date(Number(seconds) * 1000).toLocaleDateString();
 }
 
+/** Unix 秒 → 本地日期时间字符串 */
+export function formatUnixDateTime(seconds: number | undefined | null): string {
+  if (!seconds) return "";
+  return new Date(Number(seconds) * 1000).toLocaleString();
+}
+
 /** ISO 字符串 → 相对时间（1 分钟内=刚刚），悬停场景配合 title 展示绝对时间 */
 export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return "";

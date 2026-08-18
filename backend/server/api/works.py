@@ -39,4 +39,20 @@ async def works_list(req: WorksListRequest, request: Request) -> Dict[str, Any]:
             CODE_LOGIN_REQUIRED,
             f"登录态失效，请重新获取下载参数（{exc}）",
         )
+    await _mark_downloaded(page, request.app.state.database)
     return ok(page)
+
+
+async def _mark_downloaded(page: Dict[str, Any], database: Any) -> None:
+    """给每个作品打 `downloaded` 标记（历史库去重结果）。
+
+    数据库关闭时全部标 False，前端据此不显示角标；一次批量查询，不逐条往返。
+    """
+    items = page.get("items") or []
+    if database is None:
+        for item in items:
+            item["downloaded"] = False
+        return
+    downloaded = set(await database.filter_downloaded([item.get("aweme_id") for item in items]))
+    for item in items:
+        item["downloaded"] = item.get("aweme_id") in downloaded

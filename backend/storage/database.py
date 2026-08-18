@@ -241,6 +241,37 @@ class Database:
         result = await cursor.fetchone()
         return result is not None
 
+    async def filter_downloaded(self, aweme_ids: List[str]) -> List[str]:
+        """Return the subset of ``aweme_ids`` that already has a downloaded artifact.
+
+        Same "downloaded" rule as :meth:`is_downloaded` (non-empty ``file_path``),
+        but one statement per 500 ids instead of one round-trip per id — the works
+        grid checks a whole page at once.
+        """
+        if not aweme_ids:
+            return []
+        seen: Dict[str, None] = {}
+        for aid in aweme_ids:
+            if aid:
+                seen[aid] = None
+        unique_ids = list(seen.keys())
+        if not unique_ids:
+            return []
+
+        db = await self._get_conn()
+        found: List[str] = []
+        chunk_size = 500
+        for start in range(0, len(unique_ids), chunk_size):
+            chunk = unique_ids[start : start + chunk_size]
+            placeholders = ",".join("?" for _ in chunk)
+            cursor = await db.execute(
+                f"SELECT aweme_id FROM aweme WHERE aweme_id IN ({placeholders}) "
+                f"AND file_path IS NOT NULL AND file_path != ''",
+                chunk,
+            )
+            found.extend(row[0] for row in await cursor.fetchall())
+        return found
+
     # Preserving upsert: metadata-ish fields always update, but download
     # artifacts (file_path / metadata / download_time) and enrichments
     # (cover_urls / job_id) survive upserts that arrive without them.
@@ -465,6 +496,47 @@ class Database:
             for r in rows
         ]
         return {"total": total, "page": int(page), "size": int(size), "items": items}
+
+    async def get_aweme_detail(self, aweme_id: str) -> Optional[Dict[str, Any]]:
+        """Single history row with its raw metadata blob parsed, or None.
+
+        ``metadata`` is the full aweme-detail JSON captured at download time;
+        unparseable blobs surface as None rather than raising.
+        """
+        db = await self._get_conn()
+        cursor = await db.execute(
+            "SELECT aweme_id, aweme_type, title, author_id, author_name, author_sec_uid, "
+            "create_time, download_time, file_path, cover_urls, job_id, metadata "
+            "FROM aweme WHERE aweme_id = ?",
+            (aweme_id,),
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        try:
+            metadata = json.loads(row[11]) if row[11] else None
+        except (ValueError, TypeError):
+            metadata = None
+        try:
+            covers = json.loads(row[9]) if row[9] else []
+        except (ValueError, TypeError):
+            covers = []
+        return {
+            "aweme_id": row[0],
+            "aweme_type": row[1],
+            "title": row[2],
+            "author_id": row[3],
+            "author_name": row[4],
+            "author_sec_uid": row[5],
+            "create_time": row[6],
+            "download_time": row[7],
+            "file_path": row[8],
+            "cover_urls": [u for u in covers if isinstance(u, str) and u]
+            if isinstance(covers, list)
+            else [],
+            "job_id": row[10] or "",
+            "metadata": metadata,
+        }
 
     async def get_aweme_count_by_author(self, author_id: str) -> int:
         db = await self._get_conn()

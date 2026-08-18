@@ -84,6 +84,13 @@ function toggleAll(checked: boolean) {
   state.selected = checked ? new Set(state.items.map((i) => i.aweme_id)) : new Set();
 }
 
+const undownloadedCount = computed(() => state.items.filter((i) => !i.downloaded).length);
+
+/** 只勾选历史库里没有的作品，避免重复下载 */
+function selectUndownloaded() {
+  state.selected = new Set(state.items.filter((i) => !i.downloaded).map((i) => i.aweme_id));
+}
+
 async function downloadSelected() {
   const urls = state.items.filter((i) => state.selected.has(i.aweme_id)).map((i) => i.download_url);
   if (!urls.length) return;
@@ -139,6 +146,15 @@ const SOURCE_LABEL: Record<string, string> = {
       <template v-if="state.items.length">
         <n-space align="center">
           <n-checkbox :checked="allSelected" @update:checked="toggleAll">全选</n-checkbox>
+          <n-button
+            size="tiny"
+            quaternary
+            :disabled="!undownloadedCount"
+            title="只勾选历史记录里没有的作品"
+            @click="selectUndownloaded"
+          >
+            仅选未下载（{{ undownloadedCount }}）
+          </n-button>
           <span style="font-size: 13px; color: var(--dd-text-secondary)">
             已选 {{ state.selected.size }} / {{ state.items.length }}
           </span>

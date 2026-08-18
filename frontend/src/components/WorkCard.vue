@@ -60,6 +60,10 @@ function tierParam(label: string): string {
         @update:checked="$emit('toggle')"
       />
 
+      <span v-if="item.downloaded" class="downloaded-badge" title="历史记录中已有该作品">
+        已下载
+      </span>
+
       <span class="cover-badge">
         {{
           item.media_type === "images"
@@ -164,6 +168,16 @@ function tierParam(label: string): string {
   background: rgba(0, 0, 0, 0.35);
   border-radius: 4px;
   padding: 2px;
+}
+.downloaded-badge {
+  position: absolute;
+  right: var(--dd-space-2);
+  top: var(--dd-space-2);
+  background: rgba(24, 160, 88, 0.9);
+  color: #fff;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
 }
 .cover-badge {
   position: absolute;
