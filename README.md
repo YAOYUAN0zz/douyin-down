@@ -363,7 +363,7 @@ Finished jobs are pruned by TTL (default 24h) and max-jobs (default 500) — in-
 After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 
 - **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
-- **Pick-and-download from a works list:** enter a profile/mix/music link, fetch the list first (cover, description, type, size, publish date, likes, with load-more pagination), then download only the checked items; hover the description for full metadata (aweme ID, author, play/like/comment/collect/share counts, hashtags, music).
+- **Pick-and-download from a works list:** enter a profile/mix/music link and fetch the list — a card grid shows cover, description, author, publish time, play/like/comment/collect/share counts, hashtags, music, and **every bitrate tier's resolution, bitrate, and file size** directly on each card; click cards to select (with select-all and load-more), then download only the chosen works.
 - **Live download progress:** running jobs show the current step, author, finished/total item counts, and a byte-level progress bar for the file being downloaded.
 - **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
