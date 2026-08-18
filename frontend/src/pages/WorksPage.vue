@@ -100,10 +100,10 @@ async function downloadSelected() {
   }
 }
 
-async function downloadOne(item: WorkItem) {
+async function downloadOne(item: WorkItem, tier?: string) {
   try {
-    await api.download(item.download_url, quality.value || undefined);
-    message.success("已提交下载任务");
+    await api.download(item.download_url, tier ?? (quality.value || undefined));
+    message.success(tier ? `已提交下载（${tier}）` : "已提交下载任务");
     void jobs.refresh();
   } catch (err) {
     message.error((err as Error).message, { duration: 8000, closable: true });
@@ -146,11 +146,12 @@ const SOURCE_LABEL: Record<string, string> = {
             {{ SOURCE_LABEL[state.sourceType] ?? state.sourceType }}
           </n-tag>
           <span style="flex: 1"></span>
+          <span style="font-size: 12px; color: var(--dd-text-secondary)">批量画质</span>
           <n-select
             v-model:value="quality"
             :options="QUALITY_OPTIONS"
             size="small"
-            style="width: 200px"
+            style="width: 180px"
           />
           <n-button
             type="primary"
@@ -170,7 +171,7 @@ const SOURCE_LABEL: Record<string, string> = {
             :item="item"
             :selected="state.selected.has(item.aweme_id)"
             @toggle="toggle(item.aweme_id)"
-            @download="downloadOne(item)"
+            @download="(tier) => downloadOne(item, tier)"
           />
         </div>
 
