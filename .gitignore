@@ -35,6 +35,8 @@ Downloaded/
 Transcripts/
 dy_downloader.db
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 
@@ -42,8 +44,15 @@ dy_downloader.db
 config*.yml
 !config.example.yml
 .cookies.json
-config/cookies.json
+backend/config/cookies.json
+.env.dev
+.env.prod
 .omx/
+
+# Frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
 
 # Editor / IDE local settings
 .claude/

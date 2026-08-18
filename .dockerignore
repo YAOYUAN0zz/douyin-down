@@ -1,6 +1,9 @@
 .git
 .gitignore
 .github
+node_modules
+frontend/dist
+.venv
 .omx
 __pycache__
 *.pyc

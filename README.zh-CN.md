@@ -6,26 +6,6 @@
 
 一个面向实用场景的抖音下载工具，支持视频、图文、合集、音乐、收藏夹等多种类型下载，以及作者主页批量下载，默认带进度展示、重试、数据库去重、下载完整性校验和浏览器兜底能力。
 
-## 桌面版（Douzy）
-
-基于同一套后端打造的桌面客户端，为抖音、TikTok、YouTube 提供独立工作台。粘贴链接即可开始下载，同步账号内容，可视化跟踪任务，并在本地档案中统一管理已下载作品。
-
-- **三平台工作台：** 抖音视频、图文、主页与合集；TikTok 视频、图集与主页；YouTube 视频、Shorts、频道与播放列表
-- **账号内容：** 同步抖音关注、收藏夹、收藏合集与喜欢列表
-- **可视化管理：** 多链接队列、任务状态与重试、本地下载档案、筛选与快速重新下载
-
-> **内测中：** 桌面版目前处于内测期，如需使用，请到 [Releases](https://github.com/jiji262/douyin-downloader/releases) 页面下载安装文件。
-
-| **抖音链接下载** | **TikTok 下载工作台** | **YouTube 工作台** |
-|:---:|:---:|:---:|
-| ![Douzy 抖音链接下载工作台](img/desktop/001.png) | ![Douzy TikTok 下载工作台](img/desktop/002.png) | ![Douzy YouTube 工作台](img/desktop/003.png) |
-| 粘贴视频、图文、主页或合集链接，一键开始下载。 | 无需登录即可下载公开视频、图集与主页内容。 | 扫描视频、Shorts、频道与播放列表，可配置视频、MP3 或字幕下载。 |
-| **关注管理** | **收藏与喜欢** | **任务中心** |
-| ![Douzy 关注管理](img/desktop/004.png) | ![Douzy 收藏与喜欢](img/desktop/005.png) | ![Douzy 任务中心](img/desktop/006.png) |
-| 同步博主、筛选新作品、添加备注，并直接下载。 | 浏览当前抖音账号的收藏视频、收藏合集与喜欢作品。 | 查看任务结果、重试失败项，并快速打开输出目录。 |
-
-_截图来自当前桌面端 `main` 构建；为保护隐私，界面内容使用演示数据。_
-
 ## 功能概览
 
 ### 已支持
@@ -45,6 +25,7 @@ _截图来自当前桌面端 `main` 构建；为保护隐私，界面内容使�
 | **评论采集** | 按作品抓评论（可含二级回复），输出 `*_comments.json` |
 | **热搜榜 + 关键词搜索** | `--hot-board [N]` / `--search "关键词"`，结果落 JSONL |
 | **REST API 服务模式** | `--serve --serve-port 8000`（可选 `fastapi + uvicorn`） |
+| **Web UI + 参数自动获取** | `--serve` 后访问 `http://host:port/`，一键浏览器登录自动抓取 cookie/msToken |
 | **完成通知推送** | 下载完成后推 Bark / Telegram / Webhook |
 | 附加资源下载 | 封面、音乐、头像、JSON 元数据 |
 | 视频转写 | 可选功能，调用 OpenAI Transcriptions API |
@@ -74,20 +55,22 @@ _截图来自当前桌面端 `main` 构建；为保护隐私，界面内容使�
 
 ### 1) 环境准备
 
-- Python 3.8+
+- [uv](https://docs.astral.sh/uv/)（Python 后端依赖管理）
+- Node.js 20+ 与 [pnpm](https://pnpm.io/)（仅 Web UI 需要）
 - macOS / Linux / Windows
 
 ### 2) 安装依赖
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uv sync --extra server
 ```
 
 如需浏览器兜底或自动获取 Cookie：
 
 ```bash
-pip install playwright
-python -m playwright install chromium
+uv sync --extra server --extra browser
+uv run python -m playwright install chromium
 ```
 
 ### 3) 复制配置
@@ -99,7 +82,7 @@ cp config.example.yml config.yml
 ### 4) 获取 Cookie（推荐自动方式）
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 登录抖音后回到终端按 Enter，程序会自动写入配置。
@@ -161,16 +144,18 @@ transcript:
 
 ## 使用方式
 
+> 以下命令均在仓库根目录执行（`uv run --project backend` 保证 `config.yml`、`Downloaded/` 等相对路径不变）。
+
 ### 使用配置文件运行
 
 ```bash
-python run.py -c config.yml
+uv run --project backend douyin-dl -c config.yml
 ```
 
 ### 命令行追加参数
 
 ```bash
-python run.py -c config.yml \
+uv run --project backend douyin-dl -c config.yml \
   -u "https://www.douyin.com/video/7604129988555574538" \
   -t 8 \
   -p ./Downloaded
@@ -311,35 +296,77 @@ comments:
 ### 导出热搜榜快照
 
 ```bash
-python run.py --hot-board 30 -p ./Downloaded
+uv run --project backend douyin-dl --hot-board 30 -p ./Downloaded
 # 输出：./Downloaded/hot_board/20260424_221530.jsonl
 ```
 
 ### 关键词搜索
 
 ```bash
-python run.py --search "猫咪" --search-max 100 -p ./Downloaded
+uv run --project backend douyin-dl --search "猫咪" --search-max 100 -p ./Downloaded
 # 输出：./Downloaded/search/猫咪_20260424_221530.jsonl
 ```
 
-### 以 REST API 服务模式运行
+### 以 REST API 服务模式运行（含 Web UI）
 
 ```bash
-pip install fastapi uvicorn       # 一次性可选依赖
-python run.py --serve --serve-port 8000
+./start-dev.sh        # 开发：后端 + Vite dev server（Windows 用 .\start-dev.ps1）
+./start-prod.sh       # 生产：构建前端后由后端统一服务
 ```
 
-接口：
+或手动启动后端：
+
+```bash
+uv run --project backend douyin-dl --serve --serve-port 8000
+```
+
+接口（响应统一为 `{code, message, data}`，成功 `code=0`）：
 
 | Method | Path | 说明 |
 |--------|------|------|
-| POST | `/api/v1/download` | 提交 `{"url": "..."}`，返回 `{job_id, status}` |
-| GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数 |
+| GET | `/` | Web UI（可视化界面） |
+| POST | `/api/v1/download` | 提交 `{"url", "video_quality"?}`，返回 `{job_id, status}` |
+| POST | `/api/v1/download/batch` | 批量提交 `{"urls", "video_quality"?}`（单次上限 100） |
+| POST | `/api/v1/works/list` | 预览作品列表 `{"url", "cursor", "count"}`，条目含全部画质档 |
+| GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数/实时进度（`progress` 字段） |
 | GET | `/api/v1/jobs` | 列出最近的 job（按 TTL + 容量剪裁） |
-| GET | `/api/v1/health` | 健康探针 |
+| GET | `/api/v1/auth/status` | 下载参数（cookie/msToken）就绪状态与缺失项 |
+| POST | `/api/v1/auth/fetch` | 启动浏览器登录并自动抓取下载参数（需 playwright） |
+| GET | `/api/v1/auth/fetch/status` | 查询抓取会话进度 |
+| POST | `/api/v1/auth/fetch/confirm` | 手动声明「已完成登录」，立即抓取 |
+| POST | `/api/v1/auth/fetch/cancel` | 取消当前抓取会话 |
 
 完成态的 job 会按 TTL（默认 24 小时）+ 最大数量（默认 500）自动剪裁；in-flight 的 job 永不被裁掉。
 可通过 `server.max_jobs` / `server.job_ttl_seconds` 调整。
+
+### Web UI 与自动获取下载参数
+
+`--serve` 启动后，浏览器访问 `http://127.0.0.1:8000/` 即可使用 Web UI：
+
+- **提交下载**：粘贴视频/图集/主页/合集链接，实时查看任务状态；
+- **作品列表按需下载**：输入主页/合集/音乐链接先「获取列表」，卡片流直接展示封面、描述、
+  作者、发布时间、播放/点赞/评论/收藏/分享、话题标签、配乐，以及**每个码率档的分辨率、
+  码率与文件大小**；点卡片勾选（支持全选/加载更多）后仅下载选中的作品；
+- **实时下载进度**：运行中任务显示当前步骤、作者、已完成/总作品数，以及当前文件的
+  字节级进度条（已下载/总大小/百分比）；
+- **画质可见可选**：列表「画质」列展示每个作品的全部可用档位（悬停看分辨率/大小/码率），
+  提交下载时可选画质（原画/最高/1440p~360p/最低，默认跟随配置 `video_quality`），
+  仅作用于该次任务，不改全局配置；
+- **参数状态**：面板展示必需参数（`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`）是否齐全；
+- **自动获取参数**：点击按钮后服务器打开浏览器窗口，完成抖音登录即**自动检测并保存** cookie 与
+  msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认。
+
+抓取到的参数持久化在 `.cookies.json`（与 `config.yml` 同目录），服务重启后继续生效；
+`config.yml` 内嵌的 `cookies:` 仅在首次运行（尚无 `.cookies.json`）时作为种子导入，
+之后以 `.cookies.json` 为准，不会被 config 里的旧值覆盖。
+
+自动获取依赖 Playwright：
+
+```bash
+pip install playwright && playwright install chromium
+```
+
+浏览器引擎、无头模式与登录超时可通过 `server.auth_flow.*` 配置（见 `config.example.yml`）。
 
 ### 完成后发送通知
 
@@ -441,7 +468,7 @@ pytest -q
 | `comments.*` | 按作品采集评论（默认关闭） |
 | `live.*` | 直播录制参数（max_duration_seconds / chunk_size / idle_timeout_seconds） |
 | `notifications.*` | 下载完成后 Bark/Telegram/Webhook 推送 |
-| `server.*` | REST API 服务调优（max_jobs、job_ttl_seconds） |
+| `server.*` | REST API 服务调优（max_jobs、job_ttl_seconds、auth_flow.*） |
 | `database` | 启用 SQLite 去重和历史记录 |
 | `database_path` | SQLite 文件路径，默认在当前工作目录生成 `dy_downloader.db` |
 | `thread` | 并发下载数 |

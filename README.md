@@ -14,26 +14,6 @@
 
 A practical Douyin downloader supporting videos, image-notes, collections, music, favorites collections, and profile batch downloads, with progress display, retries, SQLite deduplication, download integrity checks, and browser fallback support.
 
-## Desktop App (Douzy)
-
-A desktop GUI built on the same backend, with dedicated workspaces for Douyin, TikTok, and YouTube. Paste a link to start, sync account content, follow every task, and manage downloaded works in a local archive.
-
-- **Three platforms:** Douyin videos, galleries, profiles, and collections; TikTok videos, photos, and profiles; YouTube videos, Shorts, channels, and playlists
-- **Account content:** sync Douyin following, favorites collections, collected series, and likes
-- **Visual workflow:** multi-link queue, task status and retry controls, local download archive, filters, and quick re-download
-
-> **Beta:** The desktop app is currently in closed beta. To try it, download the build from the [Releases](https://github.com/jiji262/douyin-downloader/releases) page.
-
-| **Douyin link download** | **TikTok download workspace** | **YouTube workbench** |
-|:---:|:---:|:---:|
-| ![Douzy Douyin link download workspace](img/desktop/001.png) | ![Douzy TikTok download workspace](img/desktop/002.png) | ![Douzy YouTube workbench](img/desktop/003.png) |
-| Paste a video, gallery, profile, or collection link and start in one click. | Download public videos, photo posts, and profiles without signing in. | Scan videos, Shorts, channels, and playlists, then configure video, MP3, or subtitle downloads. |
-| **Following management** | **Favorites and likes** | **Task Center** |
-| ![Douzy following management](img/desktop/004.png) | ![Douzy favorites and likes](img/desktop/005.png) | ![Douzy Task Center](img/desktop/006.png) |
-| Sync creators, filter new works, add notes, and download directly from the list. | Browse collected videos, series, and liked works from the current Douyin account. | Track job results, retry failures, and open output folders. |
-
-_Screenshots were captured from the current desktop `main` build. Demonstration data is used for privacy._
-
 ## Feature Overview
 
 ### Supported
@@ -53,6 +33,7 @@ _Screenshots were captured from the current desktop `main` build. Demonstration 
 | **Comments collection** | Per-aweme comments (+ optional replies) saved as `*_comments.json` |
 | **Hot search + keyword search** | `--hot-board [N]` / `--search "keyword"` dumps to JSONL |
 | **REST API server mode** | `--serve --serve-port 8000` (optional `fastapi + uvicorn`) |
+| **Web UI + auto param fetch** | Open `http://host:port/` after `--serve`; one-click browser login auto-captures cookies/msToken |
 | **Notification push** | Bark / Telegram / Webhook on download completion |
 | Extra assets | Cover, music, avatar, JSON metadata |
 | Video transcription | Optional, using OpenAI Transcriptions API |
@@ -82,20 +63,22 @@ _Screenshots were captured from the current desktop `main` build. Demonstration 
 
 ### 1) Requirements
 
-- Python 3.8+
+- [uv](https://docs.astral.sh/uv/) (Python backend dependency manager)
+- Node.js 20+ and [pnpm](https://pnpm.io/) (only needed for the Web UI)
 - macOS / Linux / Windows
 
 ### 2) Install dependencies
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uv sync --extra server
 ```
 
 For browser fallback and automatic cookie capture:
 
 ```bash
-pip install playwright
-python -m playwright install chromium
+uv sync --extra server --extra browser
+uv run python -m playwright install chromium
 ```
 
 ### 3) Copy config file
@@ -107,7 +90,7 @@ cp config.example.yml config.yml
 ### 4) Get cookies (recommended: automatic)
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 After logging into Douyin, return to the terminal and press Enter. Cookies will be written to your config automatically.
@@ -169,16 +152,18 @@ transcript:
 
 ## Usage
 
+> Run all commands from the repository root (`uv run --project backend` keeps `config.yml`, `Downloaded/`, etc. resolving as before).
+
 ### Run with a config file
 
 ```bash
-python run.py -c config.yml
+uv run --project backend douyin-dl -c config.yml
 ```
 
 ### Append CLI arguments
 
 ```bash
-python run.py -c config.yml \
+uv run --project backend douyin-dl -c config.yml \
   -u "https://www.douyin.com/video/7604129988555574538" \
   -t 8 \
   -p ./Downloaded
@@ -321,34 +306,62 @@ Generates a `{date}_{title}_{aweme_id}_comments.json` next to the media file.
 ### Dump the hot search board
 
 ```bash
-python run.py --hot-board 30 -p ./Downloaded
+uv run --project backend douyin-dl --hot-board 30 -p ./Downloaded
 # Output: ./Downloaded/hot_board/20260424_221530.jsonl
 ```
 
 ### Search by keyword
 
 ```bash
-python run.py --search "猫咪" --search-max 100 -p ./Downloaded
+uv run --project backend douyin-dl --search "猫咪" --search-max 100 -p ./Downloaded
 # Output: ./Downloaded/search/猫咪_20260424_221530.jsonl
 ```
 
-### Run as REST API server
+### Run as REST API server (with Web UI)
 
 ```bash
-pip install fastapi uvicorn       # one-time optional dep
-python run.py --serve --serve-port 8000
+./start-dev.sh        # dev: backend + Vite dev server (Windows: .\start-dev.ps1)
+./start-prod.sh       # prod: build the frontend, then serve everything from the backend
 ```
 
-Endpoints:
+Or start the backend manually:
+
+```bash
+uv run --project backend douyin-dl --serve --serve-port 8000
+```
+
+Endpoints (responses share one envelope: `{code, message, data}`, success `code=0`):
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/v1/download` | Submit `{"url": "..."}`, returns `{job_id, status}` |
-| GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts |
+| GET | `/` | Web UI |
+| POST | `/api/v1/download` | Submit `{"url", "video_quality"?}`, returns `{job_id, status}` |
+| POST | `/api/v1/download/batch` | Batch submit `{"urls", "video_quality"?}` (max 100 per call) |
+| POST | `/api/v1/works/list` | Preview a works list `{"url", "cursor", "count"}`; items include all quality tiers |
+| GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts/live progress (`progress` field) |
 | GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
-| GET | `/api/v1/health` | Health probe |
+| GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
+| POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters (requires playwright) |
+| GET | `/api/v1/auth/fetch/status` | Poll the capture session progress |
+| POST | `/api/v1/auth/fetch/confirm` | Manually declare "logged in" to capture immediately |
+| POST | `/api/v1/auth/fetch/cancel` | Cancel the running capture session |
 
 Finished jobs are pruned by TTL (default 24h) and max-jobs (default 500) — in-flight jobs are never pruned. Configure via `server.max_jobs` / `server.job_ttl_seconds`.
+
+### Web UI and automatic parameter fetching
+
+After `--serve`, open `http://127.0.0.1:8000/` in a browser:
+
+- **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
+- **Pick-and-download from a works list:** enter a profile/mix/music link and fetch the list — a card grid shows cover, description, author, publish time, play/like/comment/collect/share counts, hashtags, music, and **every bitrate tier's resolution, bitrate, and file size** directly on each card; click cards to select (with select-all and load-more), then download only the chosen works.
+- **Live download progress:** running jobs show the current step, author, finished/total item counts, and a byte-level progress bar for the file being downloaded.
+- **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
+- **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
+- **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
+
+Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
+
+Auto fetch requires Playwright (`pip install playwright && playwright install chromium`). Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
 
 ### Send a notification on completion
 
@@ -450,7 +463,7 @@ pytest -q
 | `comments.*` | Per-aweme comments collection (opt-in) |
 | `live.*` | Live stream recording options (max_duration_seconds / chunk_size / idle_timeout_seconds) |
 | `notifications.*` | Bark/Telegram/Webhook push on completion |
-| `server.*` | REST API server tuning (max_jobs, job_ttl_seconds) |
+| `server.*` | REST API server tuning (max_jobs, job_ttl_seconds, auth_flow.*) |
 | `proxy` | Optional HTTP/HTTPS proxy setting |
 | `database` | Enable SQLite deduplication and history |
 | `database_path` | SQLite path, default is `dy_downloader.db` in the current working directory |
@@ -548,7 +561,7 @@ Use `--show-warnings` or `-v` temporarily when debugging.
 Run:
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 ### 4) Why are transcript files not generated?

@@ -1,0 +1,49 @@
+/* 设计令牌：全局仅此一处定义颜色/间距/圆角，组件禁魔法值。
+ * 浅色为基线；暗色由 naive-ui darkTheme + 下方媒体查询覆盖。 */
+:root {
+  --dd-page-bg: #f5f6f8;
+  --dd-card-bg: #ffffff;
+  --dd-text: #1f2329;
+  --dd-text-secondary: #6b7280;
+  --dd-border: #e5e7eb;
+  --dd-radius: 8px;
+  --dd-space-1: 4px;
+  --dd-space-2: 8px;
+  --dd-space-3: 12px;
+  --dd-space-4: 16px;
+  --dd-space-6: 24px;
+  /* JSON 树着色（元数据查看器） */
+  --dd-json-key: #6b21a8;
+  --dd-json-string: #15803d;
+  --dd-json-number: #1d4ed8;
+  --dd-json-bool: #b45309;
+}
+
+html[data-theme="dark"] {
+  --dd-page-bg: #101014;
+  --dd-card-bg: #18181c;
+  --dd-text: #e5e7eb;
+  --dd-text-secondary: #9ca3af;
+  --dd-border: #2d2d33;
+  --dd-json-key: #c4b5fd;
+  --dd-json-string: #86efac;
+  --dd-json-number: #93c5fd;
+  --dd-json-bool: #fcd34d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--dd-page-bg);
+  color: var(--dd-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
