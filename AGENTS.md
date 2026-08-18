@@ -5,19 +5,20 @@
 ## Purpose
 A Python-based Douyin (TikTok China) batch downloader that fetches videos, galleries, music, and user content without watermarks. Supports multiple download modes (user posts, likes, mixes, music), concurrent downloads with rate limiting, cookie-based authentication, and optional Whisper transcription. CLI-driven with YAML configuration.
 
-## Key Files
+## Repository Layout (monorepo)
 
-| File | Description |
+| Path | Description |
 |------|-------------|
-| `run.py` | Entry point — bootstraps `sys.path` and delegates to `cli.main:main()` |
-| `__init__.py` | Package version (`2.0.0`) |
-| `pyproject.toml` | Build config, dependencies, CLI entry point (`douyin-dl`), tool settings |
-| `config.example.yml` | Example YAML config for users to copy and customize |
-| `requirements.txt` | Pinned dependency list (mirrors pyproject.toml) |
+| `backend/` | Python backend (managed by **uv**; run `uv sync --extra dev --extra server` inside) |
+| `backend/pyproject.toml` | Build config, dependencies, CLI entry point (`douyin-dl`), tool settings |
+| `frontend/` | Web UI (Vite + Vue 3 + TypeScript, managed by **pnpm**; build output `frontend/dist` is served by the backend) |
+| `config.example.yml` | Example YAML config for users to copy and customize (runtime CWD = repo root) |
+| `start-dev.sh` / `start-dev.ps1` | One-command dev startup (backend + frontend, port auto-bump) |
+| `start-prod.sh` | Build frontend then serve everything from the backend |
 | `Dockerfile` | Container build for the downloader |
-| `PROJECT_SUMMARY.md` | Architecture overview document |
+| `dev_docs/` | Design docs (`webui-redesign-report.md`, `api.md`) |
 
-## Subdirectories
+## Backend Subdirectories (`backend/`)
 
 | Directory | Purpose |
 |-----------|---------|
@@ -26,8 +27,9 @@ A Python-based Douyin (TikTok China) batch downloader that fetches videos, galle
 | `config/` | YAML config loading, env var overrides, defaults (see `config/AGENTS.md`) |
 | `control/` | Concurrency control — rate limiter, retry handler, queue manager (see `control/AGENTS.md`) |
 | `core/` | Business logic — API client, URL parser, downloaders, strategy pattern (see `core/AGENTS.md`) |
+| `server/` | FastAPI service — `api/` routers → services (`jobs.py`, `works.py`, `auth_flow.py`) → storage |
 | `storage/` | SQLite database, file management, metadata handling (see `storage/AGENTS.md`) |
-| `tests/` | Pytest test suite with 23 test modules (see `tests/AGENTS.md`) |
+| `tests/` | Pytest test suite (see `tests/AGENTS.md`) |
 | `tools/` | Standalone utilities like browser-based cookie fetching (see `tools/AGENTS.md`) |
 | `utils/` | Shared helpers — logging, validation, anti-bot signatures (see `utils/AGENTS.md`) |
 
@@ -41,9 +43,10 @@ A Python-based Douyin (TikTok China) batch downloader that fetches videos, galle
 - The `mix`/`allmix` config alias system requires special handling (see `config/config_loader.py`)
 
 ### Testing Requirements
-- Run: `python -m pytest tests/`
+- Run (from `backend/`): `uv run pytest`
 - Async tests use `pytest-asyncio` with `asyncio_mode = "auto"`
-- Linting: `ruff check .` (target Python 3.8, line-length 100)
+- Linting (from `backend/`): `uv run ruff check .` (line-length 100)
+- Frontend (from `frontend/`): `pnpm build` must pass (vue-tsc strict)
 
 ### Common Patterns
 - Factory pattern for downloaders (`DownloaderFactory.create()`)

@@ -55,20 +55,22 @@
 
 ### 1) 环境准备
 
-- Python 3.8+
+- [uv](https://docs.astral.sh/uv/)（Python 后端依赖管理）
+- Node.js 20+ 与 [pnpm](https://pnpm.io/)（仅 Web UI 需要）
 - macOS / Linux / Windows
 
 ### 2) 安装依赖
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uv sync --extra server
 ```
 
 如需浏览器兜底或自动获取 Cookie：
 
 ```bash
-pip install playwright
-python -m playwright install chromium
+uv sync --extra server --extra browser
+uv run python -m playwright install chromium
 ```
 
 ### 3) 复制配置
@@ -80,7 +82,7 @@ cp config.example.yml config.yml
 ### 4) 获取 Cookie（推荐自动方式）
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 登录抖音后回到终端按 Enter，程序会自动写入配置。
@@ -142,16 +144,18 @@ transcript:
 
 ## 使用方式
 
+> 以下命令均在仓库根目录执行（`uv run --project backend` 保证 `config.yml`、`Downloaded/` 等相对路径不变）。
+
 ### 使用配置文件运行
 
 ```bash
-python run.py -c config.yml
+uv run --project backend douyin-dl -c config.yml
 ```
 
 ### 命令行追加参数
 
 ```bash
-python run.py -c config.yml \
+uv run --project backend douyin-dl -c config.yml \
   -u "https://www.douyin.com/video/7604129988555574538" \
   -t 8 \
   -p ./Downloaded
@@ -292,25 +296,31 @@ comments:
 ### 导出热搜榜快照
 
 ```bash
-python run.py --hot-board 30 -p ./Downloaded
+uv run --project backend douyin-dl --hot-board 30 -p ./Downloaded
 # 输出：./Downloaded/hot_board/20260424_221530.jsonl
 ```
 
 ### 关键词搜索
 
 ```bash
-python run.py --search "猫咪" --search-max 100 -p ./Downloaded
+uv run --project backend douyin-dl --search "猫咪" --search-max 100 -p ./Downloaded
 # 输出：./Downloaded/search/猫咪_20260424_221530.jsonl
 ```
 
-### 以 REST API 服务模式运行
+### 以 REST API 服务模式运行（含 Web UI）
 
 ```bash
-pip install fastapi uvicorn       # 一次性可选依赖
-python run.py --serve --serve-port 8000
+./start-dev.sh        # 开发：后端 + Vite dev server（Windows 用 .\start-dev.ps1）
+./start-prod.sh       # 生产：构建前端后由后端统一服务
 ```
 
-接口：
+或手动启动后端：
+
+```bash
+uv run --project backend douyin-dl --serve --serve-port 8000
+```
+
+接口（响应统一为 `{code, message, data}`，成功 `code=0`）：
 
 | Method | Path | 说明 |
 |--------|------|------|

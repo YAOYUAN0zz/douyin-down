@@ -63,20 +63,22 @@ A practical Douyin downloader supporting videos, image-notes, collections, music
 
 ### 1) Requirements
 
-- Python 3.8+
+- [uv](https://docs.astral.sh/uv/) (Python backend dependency manager)
+- Node.js 20+ and [pnpm](https://pnpm.io/) (only needed for the Web UI)
 - macOS / Linux / Windows
 
 ### 2) Install dependencies
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uv sync --extra server
 ```
 
 For browser fallback and automatic cookie capture:
 
 ```bash
-pip install playwright
-python -m playwright install chromium
+uv sync --extra server --extra browser
+uv run python -m playwright install chromium
 ```
 
 ### 3) Copy config file
@@ -88,7 +90,7 @@ cp config.example.yml config.yml
 ### 4) Get cookies (recommended: automatic)
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 After logging into Douyin, return to the terminal and press Enter. Cookies will be written to your config automatically.
@@ -150,16 +152,18 @@ transcript:
 
 ## Usage
 
+> Run all commands from the repository root (`uv run --project backend` keeps `config.yml`, `Downloaded/`, etc. resolving as before).
+
 ### Run with a config file
 
 ```bash
-python run.py -c config.yml
+uv run --project backend douyin-dl -c config.yml
 ```
 
 ### Append CLI arguments
 
 ```bash
-python run.py -c config.yml \
+uv run --project backend douyin-dl -c config.yml \
   -u "https://www.douyin.com/video/7604129988555574538" \
   -t 8 \
   -p ./Downloaded
@@ -302,25 +306,31 @@ Generates a `{date}_{title}_{aweme_id}_comments.json` next to the media file.
 ### Dump the hot search board
 
 ```bash
-python run.py --hot-board 30 -p ./Downloaded
+uv run --project backend douyin-dl --hot-board 30 -p ./Downloaded
 # Output: ./Downloaded/hot_board/20260424_221530.jsonl
 ```
 
 ### Search by keyword
 
 ```bash
-python run.py --search "猫咪" --search-max 100 -p ./Downloaded
+uv run --project backend douyin-dl --search "猫咪" --search-max 100 -p ./Downloaded
 # Output: ./Downloaded/search/猫咪_20260424_221530.jsonl
 ```
 
-### Run as REST API server
+### Run as REST API server (with Web UI)
 
 ```bash
-pip install fastapi uvicorn       # one-time optional dep
-python run.py --serve --serve-port 8000
+./start-dev.sh        # dev: backend + Vite dev server (Windows: .\start-dev.ps1)
+./start-prod.sh       # prod: build the frontend, then serve everything from the backend
 ```
 
-Endpoints:
+Or start the backend manually:
+
+```bash
+uv run --project backend douyin-dl --serve --serve-port 8000
+```
+
+Endpoints (responses share one envelope: `{code, message, data}`, success `code=0`):
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -551,7 +561,7 @@ Use `--show-warnings` or `-v` temporarily when debugging.
 Run:
 
 ```bash
-python -m tools.cookie_fetcher --config config.yml
+uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
 ### 4) Why are transcript files not generated?
