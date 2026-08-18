@@ -119,7 +119,8 @@ function tierParam(label: string): string {
 .work-card {
   display: flex;
   align-items: stretch;
-  min-height: 184px;
+  /* 封面按 9:16 竖图取景，卡片高度以封面为准（200 宽 ≈ 264 高） */
+  min-height: 264px;
   border: 1px solid var(--dd-border);
   border-radius: 12px;
   background: var(--dd-card-bg);
@@ -141,7 +142,7 @@ function tierParam(label: string): string {
 /* 左侧封面：固定宽度，高度随卡片拉伸，图片绝对定位铺满避免塌陷 */
 .cover-wrap {
   position: relative;
-  width: 138px;
+  width: 200px;
   flex-shrink: 0;
   background: var(--dd-border);
 }
@@ -200,11 +201,11 @@ function tierParam(label: string): string {
   gap: var(--dd-space-2);
 }
 .desc {
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -212,7 +213,7 @@ function tierParam(label: string): string {
   display: flex;
   gap: var(--dd-space-3);
   color: var(--dd-text-secondary);
-  font-size: 12px;
+  font-size: 13px;
   flex-wrap: wrap;
 }
 .meta-author {
@@ -239,9 +240,9 @@ function tierParam(label: string): string {
   border-radius: 999px;
   background: transparent;
   color: var(--dd-text);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
-  padding: 5px 10px;
+  padding: 6px 12px;
   cursor: pointer;
   transition:
     border-color 0.12s,

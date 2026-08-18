@@ -197,7 +197,7 @@ const SOURCE_LABEL: Record<string, string> = {
       </template>
 
       <div v-else-if="loading" class="works-grid">
-        <n-skeleton v-for="i in 8" :key="i" height="180px" :sharp="false" />
+        <n-skeleton v-for="i in 8" :key="i" height="264px" :sharp="false" />
       </div>
 
       <n-empty
@@ -211,10 +211,11 @@ const SOURCE_LABEL: Record<string, string> = {
 <style scoped>
 .works-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  /* 单卡最小宽度跟随封面（200px）+ 信息区可读宽度 */
+  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
   gap: var(--dd-space-4);
 }
-@media (max-width: 480px) {
+@media (max-width: 560px) {
   .works-grid {
     grid-template-columns: 1fr;
   }
