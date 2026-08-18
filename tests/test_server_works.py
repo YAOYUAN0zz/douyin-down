@@ -76,6 +76,55 @@ def test_normalize_aweme_images():
     assert item["download_url"] == "https://www.douyin.com/note/7300000000000000002"
 
 
+def test_normalize_aweme_exposes_size_and_metadata():
+    item = normalize_aweme(
+        {
+            "aweme_id": "7300000000000000003",
+            "desc": "元数据",
+            "video": {
+                "duration": 10000,
+                "bit_rate": [
+                    {
+                        "gear_name": "normal_1080_0",
+                        "bit_rate": 3000000,
+                        "play_addr": {"width": 1080, "height": 1920, "data_size": 8000000},
+                    }
+                ],
+            },
+            "statistics": {
+                "digg_count": 10,
+                "comment_count": 2,
+                "collect_count": 3,
+                "share_count": 4,
+                "play_count": 500,
+            },
+            "text_extra": [
+                {"hashtag_name": "旅行"},
+                {"hashtag_name": "旅行"},  # 去重
+                {"hashtag_name": ""},
+                {"end": 3},  # 非话题条目
+            ],
+            "music": {"title": "原声 - 作者A"},
+        }
+    )
+    assert item is not None
+    assert item["size_bytes"] == 8000000
+    assert item["stats"]["share_count"] == 4
+    assert item["stats"]["play_count"] == 500
+    assert item["tags"] == ["旅行"]
+    assert item["music_title"] == "原声 - 作者A"
+
+
+def test_normalize_aweme_images_size_zero():
+    item = normalize_aweme(
+        {"aweme_id": "4", "images": [{"url_list": ["https://p3.douyinpic.com/i.jpg"]}]}
+    )
+    assert item is not None
+    assert item["size_bytes"] == 0
+    assert item["tags"] == []
+    assert item["music_title"] == ""
+
+
 def test_normalize_aweme_rejects_missing_id():
     assert normalize_aweme({}) is None
     assert normalize_aweme(None) is None

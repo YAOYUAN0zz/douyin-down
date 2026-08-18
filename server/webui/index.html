@@ -383,21 +383,29 @@
       var typeText = item.media_type === "images"
         ? "图集×" + (item.image_count || "?")
         : "视频 " + formatDuration(item.duration_seconds);
+      var sizeText = item.size_bytes ? formatBytes(item.size_bytes) : "-";
+      var stats = item.stats || {};
+      var statsTitle = "播放 " + formatCount(stats.play_count) +
+        "\n点赞 " + formatCount(stats.digg_count) +
+        "\n评论 " + formatCount(stats.comment_count) +
+        "\n收藏 " + formatCount(stats.collect_count) +
+        "\n分享 " + formatCount(stats.share_count);
       return "<tr>" +
         '<td><input type="checkbox" class="works-check" data-id="' + escapeHtml(item.aweme_id) + '"' + checked + "></td>" +
         "<td>" + cover + "</td>" +
-        '<td class="works-desc" title="' + escapeHtml(item.desc) + '">' +
+        '<td class="works-desc" title="' + escapeHtml(workDetailTitle(item)) + '">' +
           (escapeHtml(item.desc) || "（无描述）") + "</td>" +
         "<td>" + typeText + "</td>" +
         "<td>" + renderQualities(item) + "</td>" +
+        "<td>" + sizeText + "</td>" +
         "<td>" + formatEpoch(item.create_time) + "</td>" +
-        "<td>" + formatCount(item.stats && item.stats.digg_count) + "</td>" +
+        '<td title="' + escapeHtml(statsTitle) + '">' + formatCount(stats.digg_count) + "</td>" +
         "</tr>";
     }).join("");
     area.innerHTML =
       "<table><thead><tr>" +
       '<th><input type="checkbox" id="works-check-all"' + (allChecked ? " checked" : "") + "></th>" +
-      "<th>封面</th><th>描述</th><th>类型</th><th>画质</th><th>发布时间</th><th>点赞</th>" +
+      "<th>封面</th><th>描述</th><th>类型</th><th>画质</th><th>大小</th><th>发布时间</th><th>点赞</th>" +
       "</tr></thead><tbody>" + rows + "</tbody></table>";
     toolbar.hidden = false;
     $("btn-works-more").hidden = !worksState.hasMore;
@@ -451,6 +459,39 @@
       $("btn-works-download").disabled = false;
       updateWorksCount();
     });
+  }
+
+  function workDetailTitle(item) {
+    var stats = item.stats || {};
+    var lines = [];
+    if (item.desc) lines.push(item.desc, "");
+    lines.push("作品 ID：" + item.aweme_id);
+    if (item.author) lines.push("作者：" + item.author);
+    lines.push("发布时间：" + formatDateTime(item.create_time));
+    if (item.media_type === "images") {
+      lines.push("类型：图集（" + (item.image_count || "?") + " 张）");
+    } else {
+      lines.push("类型：视频 · " + formatDuration(item.duration_seconds));
+      if (item.size_bytes) lines.push("大小（最高档）：" + formatBytes(item.size_bytes));
+    }
+    lines.push(
+      "播放 " + formatCount(stats.play_count) +
+      " · 点赞 " + formatCount(stats.digg_count) +
+      " · 评论 " + formatCount(stats.comment_count) +
+      " · 收藏 " + formatCount(stats.collect_count) +
+      " · 分享 " + formatCount(stats.share_count)
+    );
+    if (item.tags && item.tags.length) {
+      lines.push("话题：" + item.tags.map(function (t) { return "#" + t; }).join(" "));
+    }
+    if (item.music_title) lines.push("配乐：" + item.music_title);
+    return lines.join("\n");
+  }
+
+  function formatDateTime(epoch) {
+    epoch = parseInt(epoch, 10) || 0;
+    if (!epoch) return "-";
+    return new Date(epoch * 1000).toLocaleString();
   }
 
   function renderQualities(item) {

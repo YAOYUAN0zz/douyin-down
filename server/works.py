@@ -110,7 +110,7 @@ def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
     statistics = aweme.get("statistics")
     stats: Dict[str, int] = {}
     if isinstance(statistics, Mapping):
-        for key in ("digg_count", "comment_count", "collect_count"):
+        for key in ("digg_count", "comment_count", "collect_count", "share_count", "play_count"):
             try:
                 stats[key] = int(statistics.get(key) or 0)
             except (TypeError, ValueError):
@@ -122,6 +122,23 @@ def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
         author_name = str(author.get("nickname") or "").strip()
 
     qualities = [] if is_images else extract_qualities(video)
+    # 作品大小取最高档的 data_size；图集列表 payload 不含图片大小，保持 0
+    size_bytes = qualities[0]["size_bytes"] if qualities else 0
+
+    # 话题标签（text_extra 中 hashtag_name 非空的条目）
+    tags: List[str] = []
+    text_extra = aweme.get("text_extra")
+    if isinstance(text_extra, list):
+        for extra in text_extra:
+            if isinstance(extra, Mapping):
+                name = str(extra.get("hashtag_name") or "").strip()
+                if name and name not in tags:
+                    tags.append(name)
+
+    music = aweme.get("music")
+    music_title = ""
+    if isinstance(music, Mapping):
+        music_title = str(music.get("title") or "").strip()
 
     path_kind = "note" if is_images else "video"
     return {
@@ -132,9 +149,12 @@ def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
         "image_count": len(images) if is_images else 0,
         "cover": cover,
         "duration_seconds": duration_seconds,
+        "size_bytes": size_bytes,
         "create_time": create_time,
         "author": author_name,
         "stats": stats,
+        "tags": tags,
+        "music_title": music_title,
         "download_url": f"https://www.douyin.com/{path_kind}/{aweme_id}",
     }
 
