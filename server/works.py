@@ -27,6 +27,52 @@ class WorksListError(Exception):
         self.status_code = status_code
 
 
+def extract_qualities(video: Any) -> List[Dict[str, Any]]:
+    """从 ``video.bit_rate`` 阶梯提取所有可用画质档，按分辨率/码率降序。
+
+    与 core.downloader_base 的选档逻辑同源（play_addr 宽高定短边），但这里
+    只做只读展示，不挑选、不签名。原画（original）不在阶梯里——它是下载期
+    通过 ratio=default 探测的档位，由 UI 侧作为固定选项呈现。
+    """
+    if not isinstance(video, Mapping):
+        return []
+    entries = video.get("bit_rate")
+    if not isinstance(entries, list):
+        return []
+
+    qualities: List[Dict[str, Any]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping):
+            continue
+        play_addr = entry.get("play_addr")
+        play_addr = play_addr if isinstance(play_addr, Mapping) else {}
+
+        def _to_int(value: Any) -> int:
+            try:
+                return int(value or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        width = _to_int(play_addr.get("width") or entry.get("width"))
+        height = _to_int(play_addr.get("height") or entry.get("height"))
+        short_edge = min(width, height) if width > 0 and height > 0 else max(width, height)
+        qualities.append(
+            {
+                "label": f"{short_edge}p" if short_edge > 0 else "unknown",
+                "width": width,
+                "height": height,
+                "bit_rate": _to_int(entry.get("bit_rate")),
+                "size_bytes": _to_int(play_addr.get("data_size")),
+                "fps": _to_int(entry.get("FPS")),
+                "format": str(entry.get("format") or ""),
+                "gear_name": str(entry.get("gear_name") or ""),
+            }
+        )
+
+    qualities.sort(key=lambda q: (min(q["width"], q["height"]), q["bit_rate"]), reverse=True)
+    return qualities
+
+
 def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
     """把上游 aweme payload 规整为 UI 需要的最小字段集；无 aweme_id 返回 None。"""
     if not isinstance(aweme, Mapping):
@@ -75,8 +121,11 @@ def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
     if isinstance(author, Mapping):
         author_name = str(author.get("nickname") or "").strip()
 
+    qualities = [] if is_images else extract_qualities(video)
+
     path_kind = "note" if is_images else "video"
     return {
+        "qualities": qualities,
         "aweme_id": aweme_id,
         "desc": str(aweme.get("desc") or "").strip(),
         "media_type": media_type,

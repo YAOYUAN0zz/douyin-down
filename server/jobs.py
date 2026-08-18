@@ -11,6 +11,8 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+JobExecutor = Callable[[str, Optional[Dict[str, Any]]], Awaitable[Dict[str, int]]]
+
 
 def _now_iso() -> str:
     # 统一使用 timezone-aware UTC ISO-8601 字符串
@@ -27,9 +29,11 @@ class JobStatus:
 
 
 class DownloadJob:
-    def __init__(self, job_id: str, url: str):
+    def __init__(self, job_id: str, url: str, options: Optional[Dict[str, Any]] = None):
         self.job_id = job_id
         self.url = url
+        # 每任务下载选项（如 video_quality 画质覆盖），None 表示跟随全局配置
+        self.options = options or None
         self.status = JobStatus.PENDING
         self.created_at = _now_iso()
         self.started_at: Optional[str] = None
@@ -47,6 +51,7 @@ class DownloadJob:
         return {
             "job_id": self.job_id,
             "url": self.url,
+            "options": self.options,
             "status": self.status,
             "created_at": self.created_at,
             "started_at": self.started_at,
@@ -77,7 +82,7 @@ class JobManager:
 
     def __init__(
         self,
-        executor: Callable[[str], Awaitable[Dict[str, int]]],
+        executor: JobExecutor,
         *,
         max_concurrency: int = 2,
         max_jobs: int = DEFAULT_MAX_JOBS,
@@ -90,9 +95,9 @@ class JobManager:
         self.max_jobs = max(1, int(max_jobs))
         self.job_ttl_seconds = max(0.0, float(job_ttl_seconds))
 
-    async def submit(self, url: str) -> DownloadJob:
+    async def submit(self, url: str, options: Optional[Dict[str, Any]] = None) -> DownloadJob:
         job_id = uuid.uuid4().hex[:12]
-        job = DownloadJob(job_id=job_id, url=url)
+        job = DownloadJob(job_id=job_id, url=url, options=options)
         async with self._lock:
             self._prune_locked()
             self._jobs[job_id] = job
@@ -134,7 +139,7 @@ class JobManager:
             job.status = JobStatus.RUNNING
             job.started_at = _now_iso()
             try:
-                counts = await self.executor(job.url)
+                counts = await self.executor(job.url, job.options)
                 job.total = int(counts.get("total", 0))
                 job.success = int(counts.get("success", 0))
                 job.failed = int(counts.get("failed", 0))

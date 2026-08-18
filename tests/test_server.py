@@ -21,7 +21,7 @@ from server.jobs import JobManager
 
 @pytest.mark.asyncio
 async def test_job_manager_runs_executor(tmp_path):
-    async def fake_executor(url: str) -> Dict[str, int]:
+    async def fake_executor(url: str, options=None) -> Dict[str, int]:
         return {"total": 1, "success": 1, "failed": 0, "skipped": 0}
 
     manager = JobManager(executor=fake_executor, max_concurrency=2)
@@ -38,7 +38,7 @@ async def test_job_manager_runs_executor(tmp_path):
 
 @pytest.mark.asyncio
 async def test_job_manager_marks_failure_on_executor_error(tmp_path):
-    async def boom(url: str) -> Dict[str, int]:
+    async def boom(url: str, options=None) -> Dict[str, int]:
         raise RuntimeError("bad url")
 
     manager = JobManager(executor=boom)
@@ -68,7 +68,7 @@ def test_download_endpoint_creates_job(tmp_path, monkeypatch):
     app = build_app(config)
 
     # 替换 job executor 为 fake（不去触达 Douyin）
-    async def fake_executor(url: str) -> Dict[str, int]:
+    async def fake_executor(url: str, options=None) -> Dict[str, int]:
         return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 
     app.state.job_manager.executor = fake_executor
@@ -135,7 +135,7 @@ def test_build_app_shares_deps_across_requests(tmp_path):
 async def test_job_manager_prunes_by_max_jobs():
     """max_jobs 超限时应优先淘汰最老的终态 job，保留 in-flight。"""
 
-    async def fast_executor(url: str) -> Dict[str, int]:
+    async def fast_executor(url: str, options=None) -> Dict[str, int]:
         return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 
     manager = JobManager(executor=fast_executor, max_jobs=3, job_ttl_seconds=0.0)
@@ -157,7 +157,7 @@ async def test_job_manager_prunes_by_max_jobs():
 async def test_job_manager_prunes_by_ttl():
     """TTL 过期的终态 job 应在下次 submit 时被清理。"""
 
-    async def fast_executor(url: str) -> Dict[str, int]:
+    async def fast_executor(url: str, options=None) -> Dict[str, int]:
         return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 
     manager = JobManager(executor=fast_executor, max_jobs=100, job_ttl_seconds=0.01)

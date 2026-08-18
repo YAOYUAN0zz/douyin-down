@@ -38,6 +38,11 @@
     padding: 8px 12px; font-size: 14px; outline: none;
   }
   input[type=text]:focus { border-color: var(--primary); }
+  select {
+    border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px;
+    font-size: 14px; background: var(--card); color: var(--text);
+  }
+  .quality-cell { font-size: 12px; color: var(--muted); white-space: nowrap; }
   .badge {
     display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
     padding: 2px 10px; font-size: 12px; border: 1px solid var(--border);
@@ -95,6 +100,18 @@
     <div class="row">
       <input type="text" id="url-input"
              placeholder="https://www.douyin.com/video/... 或 https://v.douyin.com/... 短链">
+      <select id="submit-quality" title="视频画质">
+        <option value="">画质：跟随配置</option>
+        <option value="original">原画（探测上传原片）</option>
+        <option value="highest">最高码率档</option>
+        <option value="1440p">1440p</option>
+        <option value="1080p">1080p</option>
+        <option value="720p">720p</option>
+        <option value="540p">540p</option>
+        <option value="480p">480p</option>
+        <option value="360p">360p</option>
+        <option value="lowest">最低码率档</option>
+      </select>
       <button class="primary" id="btn-submit">开始下载</button>
     </div>
     <div class="flow-msg" id="submit-msg" hidden></div>
@@ -110,6 +127,18 @@
     <div class="flow-msg" id="works-msg" hidden></div>
     <div id="works-area"></div>
     <div class="row works-toolbar" id="works-toolbar" hidden>
+      <select id="works-quality" title="视频画质">
+        <option value="">画质：跟随配置</option>
+        <option value="original">原画（探测上传原片）</option>
+        <option value="highest">最高码率档</option>
+        <option value="1440p">1440p</option>
+        <option value="1080p">1080p</option>
+        <option value="720p">720p</option>
+        <option value="540p">540p</option>
+        <option value="480p">480p</option>
+        <option value="360p">360p</option>
+        <option value="lowest">最低码率档</option>
+      </select>
       <button class="primary" id="btn-works-download">下载选中</button>
       <button id="btn-works-more" hidden>加载更多</button>
       <span class="works-count" id="works-count"></span>
@@ -254,10 +283,13 @@
       return;
     }
     setMsg($("submit-msg"), "提交中……", "run");
+    var payload = { url: url };
+    var quality = $("submit-quality").value;
+    if (quality) payload.video_quality = quality;
     api("/download", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: url }),
+      body: JSON.stringify(payload),
     }).then(function (job) {
       setMsg($("submit-msg"), "已提交任务 " + job.job_id + "。", "ok");
       $("url-input").value = "";
@@ -351,6 +383,7 @@
         '<td class="works-desc" title="' + escapeHtml(item.desc) + '">' +
           (escapeHtml(item.desc) || "（无描述）") + "</td>" +
         "<td>" + typeText + "</td>" +
+        "<td>" + renderQualities(item) + "</td>" +
         "<td>" + formatEpoch(item.create_time) + "</td>" +
         "<td>" + formatCount(item.stats && item.stats.digg_count) + "</td>" +
         "</tr>";
@@ -358,7 +391,7 @@
     area.innerHTML =
       "<table><thead><tr>" +
       '<th><input type="checkbox" id="works-check-all"' + (allChecked ? " checked" : "") + "></th>" +
-      "<th>封面</th><th>描述</th><th>类型</th><th>发布时间</th><th>点赞</th>" +
+      "<th>封面</th><th>描述</th><th>类型</th><th>画质</th><th>发布时间</th><th>点赞</th>" +
       "</tr></thead><tbody>" + rows + "</tbody></table>";
     toolbar.hidden = false;
     $("btn-works-more").hidden = !worksState.hasMore;
@@ -396,10 +429,13 @@
     if (!picked.length) return;
     $("btn-works-download").disabled = true;
     setMsg($("works-msg"), "提交 " + picked.length + " 个下载任务中……", "run");
+    var payload = { urls: picked.map(function (item) { return item.download_url; }) };
+    var quality = $("works-quality").value;
+    if (quality) payload.video_quality = quality;
     api("/download/batch", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ urls: picked.map(function (item) { return item.download_url; }) }),
+      body: JSON.stringify(payload),
     }).then(function (data) {
       setMsg($("works-msg"), "已提交 " + (data.jobs || []).length + " 个下载任务。", "ok");
       refreshJobs();
@@ -409,6 +445,33 @@
       $("btn-works-download").disabled = false;
       updateWorksCount();
     });
+  }
+
+  function renderQualities(item) {
+    if (item.media_type === "images") return '<span class="quality-cell">-</span>';
+    var qualities = item.qualities || [];
+    if (!qualities.length) return '<span class="quality-cell">未知</span>';
+    var labels = [];
+    var seen = {};
+    var titleParts = [];
+    qualities.forEach(function (q) {
+      if (!seen[q.label]) { seen[q.label] = true; labels.push(q.label); }
+      titleParts.push(
+        q.label + " " + q.width + "x" + q.height +
+        (q.size_bytes ? " · " + formatBytes(q.size_bytes) : "") +
+        (q.bit_rate ? " · " + Math.round(q.bit_rate / 1000) + "kbps" : "") +
+        (q.format ? " · " + q.format : "")
+      );
+    });
+    return '<span class="quality-cell" title="' + escapeHtml(titleParts.join("\n")) + '">' +
+      escapeHtml(labels.join(" / ")) + "</span>";
+  }
+
+  function formatBytes(bytes) {
+    bytes = parseInt(bytes, 10) || 0;
+    if (bytes >= 1048576) return (bytes / 1048576).toFixed(1) + "MB";
+    if (bytes >= 1024) return Math.round(bytes / 1024) + "KB";
+    return bytes + "B";
   }
 
   function formatDuration(seconds) {
@@ -442,8 +505,11 @@
     var rows = jobs.map(function (j) {
       var stats = j.total ? (j.success + "/" + j.total + (j.skipped ? "（跳过 " + j.skipped + "）" : "")) : "-";
       var err = j.error ? '<div class="status-failed">' + escapeHtml(j.error) + "</div>" : "";
+      var qualityTag = (j.options && j.options.video_quality)
+        ? ' <span class="quality-cell">[' + escapeHtml(j.options.video_quality) + "]</span>"
+        : "";
       return "<tr>" +
-        '<td class="url" title="' + escapeHtml(j.url) + '">' + escapeHtml(j.url) + "</td>" +
+        '<td class="url" title="' + escapeHtml(j.url) + '">' + escapeHtml(j.url) + qualityTag + "</td>" +
         '<td class="status-' + j.status + '">' + (STATUS_TEXT[j.status] || j.status) + "</td>" +
         "<td>" + stats + err + "</td>" +
         "<td>" + formatTime(j.created_at) + "</td>" +

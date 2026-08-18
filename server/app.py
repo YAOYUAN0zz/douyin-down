@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -34,10 +34,12 @@ logger = setup_logger("REST")
 
 class DownloadRequest(BaseModel):
     url: str
+    video_quality: Optional[str] = None
 
 
 class BatchDownloadRequest(BaseModel):
     urls: List[str]
+    video_quality: Optional[str] = None
 
 
 class WorksListRequest(BaseModel):
@@ -54,6 +56,46 @@ class JobResponse(BaseModel):
 
 # 单次批量提交的上限，防止误勾选提交过量任务压垮队列
 MAX_BATCH_URLS = 100
+
+# 与 core.downloader_base 的 video_quality 语义一致：
+# original = highest + 原画探测；<N>p 对应 _QUALITY_TARGET_WIDTH 支持的档位。
+ALLOWED_VIDEO_QUALITIES = frozenset(
+    {"original", "highest", "lowest", "1440p", "1080p", "720p", "540p", "480p", "360p"}
+)
+
+
+def _normalize_quality(video_quality: Optional[str]) -> Optional[str]:
+    """校验并规整画质参数；空/None 表示跟随全局配置。"""
+    if video_quality is None:
+        return None
+    quality = video_quality.strip().lower()
+    if not quality:
+        return None
+    if quality not in ALLOWED_VIDEO_QUALITIES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的画质 {video_quality}，可选：{', '.join(sorted(ALLOWED_VIDEO_QUALITIES))}",
+        )
+    return quality
+
+
+class _OverrideConfig:
+    """轻量配置视图：指定键取覆盖值，其余全部透传给底层 ConfigLoader。
+
+    只用于单个下载任务的画质覆盖，不写回、不影响全局配置。
+    """
+
+    def __init__(self, base: ConfigLoader, overrides: Dict[str, Any]):
+        self._base = base
+        self._overrides = overrides
+
+    def get(self, key: str, default: Any = None) -> Any:
+        if key in self._overrides:
+            return self._overrides[key]
+        return self._base.get(key, default)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._base, name)
 
 
 class _ServerDeps:
@@ -92,13 +134,20 @@ class _ServerDeps:
         self.queue_manager = QueueManager(max_workers=int(config.get("thread", 5) or 5))
 
 
-async def _execute_download(url: str, deps: "_ServerDeps") -> Dict[str, int]:
+async def _execute_download(
+    url: str, deps: "_ServerDeps", options: Optional[Dict[str, Any]] = None
+) -> Dict[str, int]:
     """简化版 download_url：只负责执行并返回成功/失败计数。
 
     有意不复用 cli.main.download_url —— 后者绑定了 progress_display 的 rich 状态。
     API client 仍按请求创建（aiohttp session 不跨请求复用）；其余重量级依赖从
     _ServerDeps 共享。
     """
+    # 画质等 per-job 覆盖只作用于本次任务的配置视图
+    config = deps.config
+    if options and options.get("video_quality"):
+        config = _OverrideConfig(deps.config, {"video_quality": options["video_quality"]})
+
     # proxy 与 cli.main.download_url 对齐:API 请求、短链解析和 CDN 媒体
     # 下载(downloader_base 读 api_client.proxy)统一走配置代理。
     async with DouyinAPIClient(
@@ -117,7 +166,7 @@ async def _execute_download(url: str, deps: "_ServerDeps") -> Dict[str, int]:
 
         downloader = DownloaderFactory.create(
             parsed["type"],
-            deps.config,
+            config,
             api_client,
             deps.file_manager,
             deps.cookie_manager,
@@ -142,8 +191,8 @@ async def _execute_download(url: str, deps: "_ServerDeps") -> Dict[str, int]:
 def build_app(config: ConfigLoader) -> FastAPI:
     deps = _ServerDeps(config)
 
-    async def executor(url: str) -> Dict[str, int]:
-        return await _execute_download(url, deps)
+    async def executor(url: str, options: Optional[Dict[str, Any]] = None) -> Dict[str, int]:
+        return await _execute_download(url, deps, options)
 
     server_cfg = config.get("server") or {}
     if not isinstance(server_cfg, dict):
@@ -199,7 +248,9 @@ def build_app(config: ConfigLoader) -> FastAPI:
     async def create_job(req: DownloadRequest) -> JobResponse:
         if not req.url:
             raise HTTPException(status_code=400, detail="url is required")
-        job = await manager.submit(req.url)
+        quality = _normalize_quality(req.video_quality)
+        options = {"video_quality": quality} if quality else None
+        job = await manager.submit(req.url, options=options)
         return JobResponse(job_id=job.job_id, status=job.status, url=job.url)
 
     @app.post("/api/v1/download/batch")
@@ -209,7 +260,9 @@ def build_app(config: ConfigLoader) -> FastAPI:
             raise HTTPException(status_code=400, detail="urls is required")
         if len(urls) > MAX_BATCH_URLS:
             raise HTTPException(status_code=400, detail=f"一次最多提交 {MAX_BATCH_URLS} 个链接")
-        jobs = [await manager.submit(u) for u in urls]
+        quality = _normalize_quality(req.video_quality)
+        options = {"video_quality": quality} if quality else None
+        jobs = [await manager.submit(u, options=options) for u in urls]
         return {"jobs": [{"job_id": j.job_id, "status": j.status, "url": j.url} for j in jobs]}
 
     @app.post("/api/v1/works/list")
