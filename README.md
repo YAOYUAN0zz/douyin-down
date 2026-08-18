@@ -14,26 +14,6 @@
 
 A practical Douyin downloader supporting videos, image-notes, collections, music, favorites collections, and profile batch downloads, with progress display, retries, SQLite deduplication, download integrity checks, and browser fallback support.
 
-## Desktop App (Douzy)
-
-A desktop GUI built on the same backend, with dedicated workspaces for Douyin, TikTok, and YouTube. Paste a link to start, sync account content, follow every task, and manage downloaded works in a local archive.
-
-- **Three platforms:** Douyin videos, galleries, profiles, and collections; TikTok videos, photos, and profiles; YouTube videos, Shorts, channels, and playlists
-- **Account content:** sync Douyin following, favorites collections, collected series, and likes
-- **Visual workflow:** multi-link queue, task status and retry controls, local download archive, filters, and quick re-download
-
-> **Beta:** The desktop app is currently in closed beta. To try it, download the build from the [Releases](https://github.com/jiji262/douyin-downloader/releases) page.
-
-| **Douyin link download** | **TikTok download workspace** | **YouTube workbench** |
-|:---:|:---:|:---:|
-| ![Douzy Douyin link download workspace](img/desktop/001.png) | ![Douzy TikTok download workspace](img/desktop/002.png) | ![Douzy YouTube workbench](img/desktop/003.png) |
-| Paste a video, gallery, profile, or collection link and start in one click. | Download public videos, photo posts, and profiles without signing in. | Scan videos, Shorts, channels, and playlists, then configure video, MP3, or subtitle downloads. |
-| **Following management** | **Favorites and likes** | **Task Center** |
-| ![Douzy following management](img/desktop/004.png) | ![Douzy favorites and likes](img/desktop/005.png) | ![Douzy Task Center](img/desktop/006.png) |
-| Sync creators, filter new works, add notes, and download directly from the list. | Browse collected videos, series, and liked works from the current Douyin account. | Track job results, retry failures, and open output folders. |
-
-_Screenshots were captured from the current desktop `main` build. Demonstration data is used for privacy._
-
 ## Feature Overview
 
 ### Supported

@@ -40,22 +40,6 @@ A Python-based Douyin (TikTok China) batch downloader that fetches videos, galle
 - Config is YAML-based with env var overrides (`DOUYIN_*` prefix)
 - The `mix`/`allmix` config alias system requires special handling (see `config/config_loader.py`)
 
-### Shared Logic With Desktop
-- This project shares Python backend logic with `/Users/crimson/codes/douyin/douyin-downloader-desktop`.
-- When fixing shared logic in `auth/`, `cli/`, `config/`, `control/`, `core/`, `storage/`, `tools/`, `utils/`, or shared tests, apply the equivalent fix in both projects unless the difference is explicitly desktop-only or CLI-only.
-- Before finishing a shared-logic fix, compare the touched shared files against the sibling project and either keep them identical or document the intentional divergence.
-- **Sync script:** `../douyin-downloader-desktop/scripts/sync-to-cli.sh` copies all shared files from the desktop project here. Run `--check` to detect drift.
-- **Intentional divergences** (these files differ by design):
-  - `cli/main.py` — CLI omits desktop-only `_verify_self_checksum()` and `_enforce_license_at_startup()`.
-  - `run.py` — CLI is a simple bootstrap; desktop has sidecar startup + data-dir migration.
-  - `server/app.py`, `server/jobs.py` — CLI server is a simplified subset; desktop adds license, SSE, overrides, cancel.
-  - `server/auth_flow.py`, `server/works.py`, `server/webui/` — CLI-only web UI, browser auth-fetch flow, and works-list preview; desktop drives its own GUI surfaces.
-  - `control/__init__.py` — CLI doesn't export `ProgressReporter` classes (desktop UI only).
-  - `core/retry_executor.py` — CLI retains an unwired legacy copy; the active desktop implementation depends on desktop-only platform routing and is not auto-synced.
-  - `utils/proxy.py` — desktop-only policy for following the OS proxy when the app proxy setting is blank; CLI keeps explicit-only proxy semantics.
-  - `storage/database.py` — desktop adds TikTok, Following, and My Content schema/helpers; only dependency-neutral database tests remain byte-identical.
-  - `tests/test_database_platform.py`, `tests/test_database_desktop_schema.py`, `tests/test_retry_executor.py` — desktop-only tests and not present here.
-
 ### Testing Requirements
 - Run: `python -m pytest tests/`
 - Async tests use `pytest-asyncio` with `asyncio_mode = "auto"`
