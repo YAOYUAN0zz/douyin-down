@@ -57,8 +57,6 @@ const menuOptions: MenuOption[] = [
   { key: "/works", label: menuLink("/works", "🗂 作品浏览") },
   { key: "/jobs", label: menuLink("/jobs", "📋 任务中心") },
   { key: "/history", label: menuLink("/history", "🕘 历史记录") },
-  { key: "/discovery", label: menuLink("/discovery", "🔍 发现") },
-  { key: "/live", label: menuLink("/live", "📡 直播录制") },
   { key: "/settings", label: menuLink("/settings", "⚙ 设置") },
 ];
 

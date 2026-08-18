@@ -73,4 +73,4 @@
 
 ## 规划中的端点（见 `webui-redesign-report.md` §5）
 
-M2：jobs 取消/重试/删除/清空、分页筛选、SSE `/jobs/events`；M3：`GET/PUT /settings`、`/resolve`；M4：`/history*`、`/discovery/*`；M5：`/live/*`、通知测试。
+M2：jobs 取消/重试/删除/清空、分页筛选、SSE `/jobs/events`；M3：`GET/PUT /settings`、`/resolve`；M4：`/history*`、通知测试。（发现/直播录制已按用户决定砍掉，不做 Web 化。）

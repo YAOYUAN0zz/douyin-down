@@ -6,6 +6,7 @@
 > **v2 修订（用户已拍板）**：① 项目转为前后端 monorepo 结构，新增 §6 目标文件夹架构；② 全部端点（存量 + 新增）统一到同一套响应模型与错误码规范（§5）。
 > **v3 修订**：本项目为从 GitHub clone 的第三方项目二次开发，**不存在**需要同步的桌面端仓库，已移除全部「与桌面端对齐」相关内容（项目 CLAUDE.md / AGENTS.md 中的对应记录亦已清除）。
 > **v4 修订（实施记录）**：M0 与 M1 已落地。落地时对 §6 的一处调整：Python 包**平铺在 `backend/` 下且包名不变**（`backend/core/` 而非 `backend/douyin_downloader/core/`），避免全仓 import 与测试 mock-patch 字符串的大规模重写；其余按方案执行。API 规格见 `dev_docs/api.md`。
+> **v5 修订（用户已拍板）**：**砍掉「发现（热搜/搜索）」与「直播录制」两个页面**及其配套端点，UI 收敛为五页（下载/作品浏览/任务中心/历史记录/设置）；后端 `core/discovery.py` 与 live 下载器保留 CLI 用法，不做 Web 化。原 §4.6/§4.7 与相关路线图条目已删除。
 
 ---
 
@@ -102,13 +103,11 @@
 │ 🗂 作品浏览  │              内容区                        │
 │ 📋 任务中心  │                                          │
 │ 🕘 历史记录  │                                          │
-│ 🔍 发现     │                                          │
-│ 📡 直播录制  │                                          │
 │ ⚙ 设置     │                                          │
 └────────────┴──────────────────────────────────────────┘
 ```
 
-六个主页面 + 全局元素，逐一说明如下。
+五个主页面 + 全局元素，逐一说明如下。
 
 ### 4.1 全局元素
 
@@ -133,7 +132,7 @@
   - 时间范围：起止日期选择器（对应 `start_time/end_time`）
   - 数量上限：数字输入（0=不限）
   - 增量下载：开关（仅链接为主页/合集时可用，否则禁用+说明）
-- 链接类型即时识别：粘贴后异步探测并在链接旁打 tag（视频/图文/合集/音乐/主页/直播），主页链接旁出现「浏览作品列表 →」快捷跳转。
+- 链接类型即时识别：粘贴后异步探测并在链接旁打 tag（视频/图文/合集/音乐/主页），主页链接旁出现「浏览作品列表 →」快捷跳转。
 
 **B. 主页批量下载区**（当输入含主页链接时展开，或独立入口）
 - 模式选择：**复选按钮组**（发布 post / 喜欢 like / 合集 mix / 音乐 music），收藏（collect/collectmix）单列一组并注明「仅当前登录账号，且不能与其他模式混用」——由控件互斥逻辑直接约束，而不是让用户读文档。
@@ -172,20 +171,7 @@
 - 行内动作：打开输出目录路径（复制）、重新下载、查看元数据 JSON。
 - 侧栏统计卡：总下载数、近 7/30 天活跃作者 Top（`get_top_authors`）、按作者计数。
 
-### 4.6 页面五：发现（热搜 + 搜索）
-
-- 热搜榜 Tab：一键拉取 `--hot-board` 数据，表格（排名/词条/热度），词条可一键转搜索。
-- 搜索 Tab：关键词 + 数量上限 → 结果以作品卡片流展示（复用作品浏览的卡片组件），可勾选批量下载。
-- 需新增两个后端端点（见 §5）。
-
-### 4.7 页面六：直播录制
-
-- 输入 `live.douyin.com/{room_id}` 或主播主页链接 → 显示直播间状态（在播/未开播）。
-- `[开始录制]` → 创建 live job，任务中心显示录制时长/已录字节，**带 `[停止录制]`**。
-- 录制参数（最长时长、空闲超时）就地可调，默认取配置。
-- 明确标注 HLS 源仅保存 playlist、需 ffmpeg 后处理（后端现状如实提示）。
-
-### 4.8 页面七：设置
+### 4.6 页面五：设置
 
 后端 `_UI_PERSISTED_KEYS` + `save()` 已就绪，只差端点。按分组渲染，**保存后热生效**（重建 config 快照）：
 
@@ -197,7 +183,6 @@
 | 评论 | enabled 开关、include_replies、max_comments、page_size |
 | 转写 | enabled、model、api_url、api_key（密码框，回显打码）、输出格式复选 |
 | 通知 | enabled + on_success/on_failure 开关、providers 列表编辑（bark/telegram/webhook 三种模板表单）、`[发送测试通知]` |
-| 直播 | max_duration_seconds、idle_timeout_seconds |
 | 账号 | cookie 状态明细、`[自动获取参数]`、`[清除登录]` |
 
 敏感字段（api_key、cookie 值）在 GET 响应中打码，只在用户显式修改时写回。
@@ -219,8 +204,6 @@
 | P1 | `POST /api/v1/download` 请求体扩展 | `mode[]`、`number`、`increase`、`start_time/end_time`、产物开关（per-job override） |
 | P1 | `GET /api/v1/history?query=&page=`、`GET /api/v1/history/stats` | 历史页 |
 | P1 | `POST /api/v1/resolve` | 链接类型探测（返回 source_type，用于输入框即时 tag） |
-| P2 | `GET /api/v1/discovery/hot-board`、`POST /api/v1/discovery/search` | 发现页（包装 `core/discovery.py`） |
-| P2 | `POST /api/v1/live/record`、`POST /api/v1/live/{job_id}/stop`、`GET /api/v1/live/status?room=` | 直播录制 |
 | P2 | server 路径接入 `_dispatch_notifications` | 任务完成推送与 CLI 对齐 |
 | P2 | `POST /api/v1/notifications/test` | 设置页测试按钮 |
 
@@ -243,7 +226,7 @@ douyin-downloader/
 │   │   ├── tools/
 │   │   ├── utils/
 │   │   └── server/                 # FastAPI，按分层重组：
-│   │       ├── api/                #   路由层（routers，按域拆分：download/jobs/works/auth/settings/history/discovery/live）
+│   │       ├── api/                #   路由层（routers，按域拆分：download/jobs/works/auth/settings/history）
 │   │       ├── services/           #   Service 层（JobManager、auth_flow、works 预览等迁入）
 │   │       ├── schemas/            #   Pydantic 请求/响应模型（统一响应包装与错误码定义处）
 │   │       └── app.py              #   应用工厂：只做装配（中间件、StaticFiles、路由注册）
@@ -254,7 +237,7 @@ douyin-downloader/
 │   ├── src/
 │   │   ├── api/                    # API client（与 schemas 对齐的 TS 类型 + 请求封装）
 │   │   ├── components/             # 通用组件（toast、状态条、作品卡片、任务行…）
-│   │   ├── pages/                  # 七个页面（download/works/jobs/history/discovery/live/settings）
+│   │   ├── pages/                  # 五个页面（download/works/jobs/history/settings）
 │   │   ├── stores/                 # Pinia（auth、jobs、settings）
 │   │   ├── styles/tokens.css       # 设计令牌（浅色基线 + 暗色覆盖）
 │   │   └── utils/
@@ -299,8 +282,7 @@ douyin-downloader/
 | M1 基础设施 | StaticFiles 挂载 dist、前端工程脚手架（Vite+Vue3+组件库）、设计令牌+暗色、布局壳（侧导航/状态条/toast）、统一响应模型（§5） | 新壳跑通，旧功能迁移：下载、作品浏览、任务列表、auth 弹窗 |
 | M2 任务与持久化 | server 开 DB、job 持久化、任务操作端点（取消/重试/删除/清空）、分页筛选、SSE、任务详情抽屉、partial 状态 | 任务中心完整版 |
 | M3 设置与下载增强 | settings 端点+设置页全分组、下载页高级选项（模式/数量/增量/时间/产物）、链接探测 tag | 设置页 + 下载工作台完整版 |
-| M4 历史与发现 | history 端点+历史页、卡片「已下载」角标、hot-board/search 端点+发现页 | 历史 + 发现 |
-| M5 直播与通知 | live 录制端点+页面、server 通知派发+测试按钮 | 全量能力对齐 |
+| M4 历史与通知 | history 端点+历史页、卡片「已下载」角标、server 通知派发+测试按钮 | 全量能力对齐 |
 
 每阶段独立可合并；M1 完成后旧 `index.html` 即可删除（及时删死代码）。
 
@@ -310,7 +292,6 @@ douyin-downloader/
 2. **前端子工程与构建产物入库策略**：dist 入库（部署零依赖）vs CI 构建（仓库干净）——建议 dist 入库 + CI 校验一致性，Docker 多阶段构建不污染运行时镜像。需用户拍板。
 3. **SSE 在 uvicorn 单 worker 下的连接占用**：连接数少（本地工具），风险低；仍保留轮询降级。
 4. **数据库单例冲突**：`server/app.py:176` 注释提到的冲突原因需先查清（推测与 CLI 同进程单例有关），M2 前置任务。
-5. **发现/搜索接口稳定性**：依赖抖音非公开接口，UI 需做好错误态与「功能可能受风控影响」的提示。
 
 ---
 

@@ -17,12 +17,6 @@ export const router = createRouter({
       component: PlaceholderPage,
       meta: { title: "历史记录", stage: "M4" },
     },
-    {
-      path: "/discovery",
-      component: PlaceholderPage,
-      meta: { title: "发现", stage: "M4" },
-    },
-    { path: "/live", component: PlaceholderPage, meta: { title: "直播录制", stage: "M5" } },
     { path: "/settings", component: PlaceholderPage, meta: { title: "设置", stage: "M3" } },
   ],
 });
