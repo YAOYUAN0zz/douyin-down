@@ -118,6 +118,8 @@ function tierParam(label: string): string {
 <style scoped>
 .work-card {
   display: flex;
+  align-items: stretch;
+  min-height: 184px;
   border: 1px solid var(--dd-border);
   border-radius: 12px;
   background: var(--dd-card-bg);
@@ -136,15 +138,16 @@ function tierParam(label: string): string {
   box-shadow: 0 0 0 2px rgba(32, 128, 240, 0.35);
 }
 
-/* 左侧封面：固定宽度，3:4 */
+/* 左侧封面：固定宽度，高度随卡片拉伸，图片绝对定位铺满避免塌陷 */
 .cover-wrap {
   position: relative;
-  flex: 0 0 132px;
-  aspect-ratio: 3 / 4;
+  width: 138px;
+  flex-shrink: 0;
   background: var(--dd-border);
-  align-self: stretch;
 }
 .cover {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
