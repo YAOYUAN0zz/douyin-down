@@ -54,7 +54,6 @@ function menuLink(path: string, label: string) {
 
 const menuOptions: MenuOption[] = [
   { key: "/download", label: menuLink("/download", "⬇ 下载") },
-  { key: "/works", label: menuLink("/works", "🗂 作品浏览") },
   { key: "/jobs", label: menuLink("/jobs", "📋 任务中心") },
   { key: "/history", label: menuLink("/history", "🕘 历史记录") },
   { key: "/settings", label: menuLink("/settings", "⚙ 设置") },
