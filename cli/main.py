@@ -346,6 +346,9 @@ async def _run_serve_subcommand(args, config: ConfigLoader) -> None:
         return
 
     display.print_info(f"启动 REST 服务：http://{args.serve_host}:{args.serve_port}")
+    display.print_info(
+        f"Web UI：http://{args.serve_host}:{args.serve_port}/ （浏览器打开可视化界面）"
+    )
     await run_server(config, host=args.serve_host, port=args.serve_port)
 
 

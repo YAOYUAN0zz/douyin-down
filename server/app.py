@@ -10,17 +10,21 @@ fastapi/uvicorn 是**可选**依赖。若未安装，导入本模块会 ImportEr
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, Dict, List
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from auth import CookieManager
 from config import ConfigLoader
 from control import QueueManager, RateLimiter, RetryHandler
 from core import DouyinAPIClient, DownloaderFactory, URLParser
+from server.auth_flow import BrowserAuthFlow
 from server.jobs import JobManager
 from storage import FileManager
+from tools.cookie_fetcher import REQUIRED_KEYS
 from utils.logger import setup_logger
 from utils.validators import is_short_url, normalize_short_url
 
@@ -52,8 +56,6 @@ class _ServerDeps:
         # so the sidecar can find it regardless of its working directory (which
         # on macOS is often '/' when launched by Electron).
         if config.config_path:
-            from pathlib import Path
-
             cookie_file = str(Path(config.config_path).resolve().parent / ".cookies.json")
         else:
             cookie_file = ".cookies.json"
@@ -140,9 +142,20 @@ def build_app(config: ConfigLoader) -> FastAPI:
         ),
     )
 
+    auth_flow_cfg = server_cfg.get("auth_flow") or {}
+    if not isinstance(auth_flow_cfg, dict):
+        auth_flow_cfg = {}
+    auth_flow = BrowserAuthFlow(
+        deps.cookie_manager,
+        browser=str(auth_flow_cfg.get("browser") or "chromium"),
+        headless=bool(auth_flow_cfg.get("headless", False)),
+        timeout_seconds=float(auth_flow_cfg.get("timeout_seconds") or 600.0),
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         yield
+        await auth_flow.shutdown()
         await manager.shutdown()
 
     app = FastAPI(
@@ -153,6 +166,15 @@ def build_app(config: ConfigLoader) -> FastAPI:
     )
     app.state.job_manager = manager
     app.state.deps = deps
+    app.state.auth_flow = auth_flow
+
+    webui_index = Path(__file__).resolve().parent / "webui" / "index.html"
+
+    @app.get("/", include_in_schema=False)
+    async def webui() -> FileResponse:
+        if not webui_index.exists():
+            raise HTTPException(status_code=404, detail="web UI not found")
+        return FileResponse(webui_index, media_type="text/html")
 
     @app.get("/api/v1/health")
     async def health() -> Dict[str, str]:
@@ -176,6 +198,44 @@ def build_app(config: ConfigLoader) -> FastAPI:
     async def list_jobs() -> Dict[str, List[Dict[str, Any]]]:
         jobs = await manager.list_jobs()
         return {"jobs": [j.to_dict() for j in jobs]}
+
+    @app.get("/api/v1/auth/status")
+    async def auth_status() -> Dict[str, Any]:
+        cookies = deps.cookie_manager.get_cookies()
+        required = sorted(REQUIRED_KEYS)
+        missing = [key for key in required if not (cookies.get(key) or "").strip()]
+        return {
+            "cookie_count": len(cookies),
+            "required": required,
+            "missing": missing,
+            "ready": not missing,
+            "has_session": bool((cookies.get("sessionid") or "").strip()),
+        }
+
+    @app.post("/api/v1/auth/fetch")
+    async def auth_fetch_start() -> Dict[str, Any]:
+        started = await auth_flow.start()
+        if not started:
+            raise HTTPException(status_code=409, detail="已有一个获取会话正在进行")
+        return auth_flow.snapshot()
+
+    @app.get("/api/v1/auth/fetch/status")
+    async def auth_fetch_status() -> Dict[str, Any]:
+        return auth_flow.snapshot()
+
+    @app.post("/api/v1/auth/fetch/confirm")
+    async def auth_fetch_confirm() -> Dict[str, Any]:
+        confirmed = await auth_flow.confirm()
+        if not confirmed:
+            raise HTTPException(status_code=409, detail="当前没有正在进行的获取会话")
+        return auth_flow.snapshot()
+
+    @app.post("/api/v1/auth/fetch/cancel")
+    async def auth_fetch_cancel() -> Dict[str, Any]:
+        cancelled = await auth_flow.cancel()
+        if not cancelled:
+            raise HTTPException(status_code=409, detail="当前没有正在进行的获取会话")
+        return auth_flow.snapshot()
 
     return app
 

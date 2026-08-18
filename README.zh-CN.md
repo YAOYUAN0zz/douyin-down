@@ -45,6 +45,7 @@ _截图来自当前桌面端 `main` 构建；为保护隐私，界面内容使�
 | **评论采集** | 按作品抓评论（可含二级回复），输出 `*_comments.json` |
 | **热搜榜 + 关键词搜索** | `--hot-board [N]` / `--search "关键词"`，结果落 JSONL |
 | **REST API 服务模式** | `--serve --serve-port 8000`（可选 `fastapi + uvicorn`） |
+| **Web UI + 参数自动获取** | `--serve` 后访问 `http://host:port/`，一键浏览器登录自动抓取 cookie/msToken |
 | **完成通知推送** | 下载完成后推 Bark / Telegram / Webhook |
 | 附加资源下载 | 封面、音乐、头像、JSON 元数据 |
 | 视频转写 | 可选功能，调用 OpenAI Transcriptions API |
@@ -333,13 +334,35 @@ python run.py --serve --serve-port 8000
 
 | Method | Path | 说明 |
 |--------|------|------|
+| GET | `/` | Web UI（可视化界面） |
 | POST | `/api/v1/download` | 提交 `{"url": "..."}`，返回 `{job_id, status}` |
 | GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数 |
 | GET | `/api/v1/jobs` | 列出最近的 job（按 TTL + 容量剪裁） |
-| GET | `/api/v1/health` | 健康探针 |
+| GET | `/api/v1/auth/status` | 下载参数（cookie/msToken）就绪状态与缺失项 |
+| POST | `/api/v1/auth/fetch` | 启动浏览器登录并自动抓取下载参数（需 playwright） |
+| GET | `/api/v1/auth/fetch/status` | 查询抓取会话进度 |
+| POST | `/api/v1/auth/fetch/confirm` | 手动声明「已完成登录」，立即抓取 |
+| POST | `/api/v1/auth/fetch/cancel` | 取消当前抓取会话 |
 
 完成态的 job 会按 TTL（默认 24 小时）+ 最大数量（默认 500）自动剪裁；in-flight 的 job 永不被裁掉。
 可通过 `server.max_jobs` / `server.job_ttl_seconds` 调整。
+
+### Web UI 与自动获取下载参数
+
+`--serve` 启动后，浏览器访问 `http://127.0.0.1:8000/` 即可使用 Web UI：
+
+- **提交下载**：粘贴视频/图集/主页/合集链接，实时查看任务状态；
+- **参数状态**：面板展示必需参数（`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`）是否齐全；
+- **自动获取参数**：点击按钮后服务器打开浏览器窗口，完成抖音登录即**自动检测并保存** cookie 与
+  msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认。
+
+自动获取依赖 Playwright：
+
+```bash
+pip install playwright && playwright install chromium
+```
+
+浏览器引擎、无头模式与登录超时可通过 `server.auth_flow.*` 配置（见 `config.example.yml`）。
 
 ### 完成后发送通知
 
@@ -441,7 +464,7 @@ pytest -q
 | `comments.*` | 按作品采集评论（默认关闭） |
 | `live.*` | 直播录制参数（max_duration_seconds / chunk_size / idle_timeout_seconds） |
 | `notifications.*` | 下载完成后 Bark/Telegram/Webhook 推送 |
-| `server.*` | REST API 服务调优（max_jobs、job_ttl_seconds） |
+| `server.*` | REST API 服务调优（max_jobs、job_ttl_seconds、auth_flow.*） |
 | `database` | 启用 SQLite 去重和历史记录 |
 | `database_path` | SQLite 文件路径，默认在当前工作目录生成 `dy_downloader.db` |
 | `thread` | 并发下载数 |

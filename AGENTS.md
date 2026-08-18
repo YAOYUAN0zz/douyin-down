@@ -49,6 +49,7 @@ A Python-based Douyin (TikTok China) batch downloader that fetches videos, galle
   - `cli/main.py` — CLI omits desktop-only `_verify_self_checksum()` and `_enforce_license_at_startup()`.
   - `run.py` — CLI is a simple bootstrap; desktop has sidecar startup + data-dir migration.
   - `server/app.py`, `server/jobs.py` — CLI server is a simplified subset; desktop adds license, SSE, overrides, cancel.
+  - `server/auth_flow.py`, `server/webui/` — CLI-only web UI and browser auth-fetch flow; desktop drives its own GUI login surface.
   - `control/__init__.py` — CLI doesn't export `ProgressReporter` classes (desktop UI only).
   - `core/retry_executor.py` — CLI retains an unwired legacy copy; the active desktop implementation depends on desktop-only platform routing and is not auto-synced.
   - `utils/proxy.py` — desktop-only policy for following the OS proxy when the app proxy setting is blank; CLI keeps explicit-only proxy semantics.

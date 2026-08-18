@@ -53,6 +53,7 @@ _Screenshots were captured from the current desktop `main` build. Demonstration 
 | **Comments collection** | Per-aweme comments (+ optional replies) saved as `*_comments.json` |
 | **Hot search + keyword search** | `--hot-board [N]` / `--search "keyword"` dumps to JSONL |
 | **REST API server mode** | `--serve --serve-port 8000` (optional `fastapi + uvicorn`) |
+| **Web UI + auto param fetch** | Open `http://host:port/` after `--serve`; one-click browser login auto-captures cookies/msToken |
 | **Notification push** | Bark / Telegram / Webhook on download completion |
 | Extra assets | Cover, music, avatar, JSON metadata |
 | Video transcription | Optional, using OpenAI Transcriptions API |
@@ -343,12 +344,27 @@ Endpoints:
 
 | Method | Path | Description |
 |--------|------|-------------|
+| GET | `/` | Web UI |
 | POST | `/api/v1/download` | Submit `{"url": "..."}`, returns `{job_id, status}` |
 | GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts |
 | GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
-| GET | `/api/v1/health` | Health probe |
+| GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
+| POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters (requires playwright) |
+| GET | `/api/v1/auth/fetch/status` | Poll the capture session progress |
+| POST | `/api/v1/auth/fetch/confirm` | Manually declare "logged in" to capture immediately |
+| POST | `/api/v1/auth/fetch/cancel` | Cancel the running capture session |
 
 Finished jobs are pruned by TTL (default 24h) and max-jobs (default 500) — in-flight jobs are never pruned. Configure via `server.max_jobs` / `server.job_ttl_seconds`.
+
+### Web UI and automatic parameter fetching
+
+After `--serve`, open `http://127.0.0.1:8000/` in a browser:
+
+- **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
+- **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
+- **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
+
+Auto fetch requires Playwright (`pip install playwright && playwright install chromium`). Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
 
 ### Send a notification on completion
 
@@ -450,7 +466,7 @@ pytest -q
 | `comments.*` | Per-aweme comments collection (opt-in) |
 | `live.*` | Live stream recording options (max_duration_seconds / chunk_size / idle_timeout_seconds) |
 | `notifications.*` | Bark/Telegram/Webhook push on completion |
-| `server.*` | REST API server tuning (max_jobs, job_ttl_seconds) |
+| `server.*` | REST API server tuning (max_jobs, job_ttl_seconds, auth_flow.*) |
 | `proxy` | Optional HTTP/HTTPS proxy setting |
 | `database` | Enable SQLite deduplication and history |
 | `database_path` | SQLite path, default is `dy_downloader.db` in the current working directory |

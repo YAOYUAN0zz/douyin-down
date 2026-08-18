@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Douyin Downloader</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --text: #1f2329; --muted: #6b7280;
+    --border: #e5e7eb; --primary: #1e66f5; --primary-hover: #1554d1;
+    --ok: #16a34a; --warn: #d97706; --err: #dc2626; --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px; background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    font-size: 14px; line-height: 1.6;
+  }
+  .container { max-width: 920px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: var(--muted); margin: 0 0 8px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 20px;
+  }
+  .card h2 { font-size: 15px; margin: 0 0 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button {
+    border: 1px solid var(--border); background: var(--card); color: var(--text);
+    border-radius: 8px; padding: 7px 14px; cursor: pointer; font-size: 14px;
+  }
+  button:hover { background: #f3f4f6; }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  button.primary:hover { background: var(--primary-hover); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type=text] {
+    flex: 1; min-width: 260px; border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px; font-size: 14px; outline: none;
+  }
+  input[type=text]:focus { border-color: var(--primary); }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+    padding: 2px 10px; font-size: 12px; border: 1px solid var(--border);
+  }
+  .badge.ok { color: var(--ok); border-color: rgba(22,163,74,.35); background: rgba(22,163,74,.08); }
+  .badge.err { color: var(--err); border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.08); }
+  .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+  .flow-msg { margin-top: 10px; font-size: 13px; }
+  .flow-msg.ok { color: var(--ok); }
+  .flow-msg.err { color: var(--err); }
+  .flow-msg.run { color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+  th { color: var(--muted); font-weight: 600; }
+  td.url { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .status-pending { color: var(--muted); }
+  .status-running { color: var(--warn); }
+  .status-success { color: var(--ok); }
+  .status-failed { color: var(--err); }
+  .empty { color: var(--muted); padding: 12px 0; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div>
+    <h1>Douyin Downloader</h1>
+    <p class="subtitle">粘贴抖音链接提交下载任务；下载参数（Cookie / msToken）可一键自动获取。</p>
+  </div>
+
+  <div class="card">
+    <h2>下载参数状态</h2>
+    <div class="row" id="auth-badges"><span class="empty">加载中…</span></div>
+    <div class="row" style="margin-top:12px">
+      <button class="primary" id="btn-fetch">自动获取参数</button>
+      <button id="btn-confirm" hidden>我已完成登录</button>
+      <button id="btn-cancel" hidden>取消</button>
+      <button id="btn-refresh">刷新状态</button>
+    </div>
+    <div class="flow-msg" id="flow-msg" hidden></div>
+    <p class="hint">
+      点击「自动获取参数」后，服务器会打开一个浏览器窗口；在其中登录抖音后会自动检测并保存参数。
+      若长时间未自动完成，可点「我已完成登录」手动确认。需要已安装 Playwright。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>提交下载</h2>
+    <div class="row">
+      <input type="text" id="url-input"
+             placeholder="https://www.douyin.com/video/... 或 https://v.douyin.com/... 短链">
+      <button class="primary" id="btn-submit">开始下载</button>
+    </div>
+    <div class="flow-msg" id="submit-msg" hidden></div>
+  </div>
+
+  <div class="card">
+    <h2>任务列表</h2>
+    <div id="jobs-area"><div class="empty">暂无任务</div></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var API = "/api/v1";
+  var flowPollTimer = null;
+
+  function $(id) { return document.getElementById(id); }
+
+  function api(path, opts) {
+    return fetch(API + path, opts).then(function (resp) {
+      return resp.json().catch(function () { return {}; }).then(function (body) {
+        if (!resp.ok) {
+          var detail = body && body.detail ? body.detail : ("HTTP " + resp.status);
+          throw new Error(detail);
+        }
+        return body;
+      });
+    });
+  }
+
+  function setMsg(el, text, cls) {
+    el.hidden = !text;
+    el.textContent = text || "";
+    el.className = "flow-msg" + (cls ? " " + cls : "");
+  }
+
+  // ---------------- 参数状态 ----------------
+  function renderAuthStatus(data) {
+    var box = $("auth-badges");
+    box.innerHTML = "";
+    (data.required || []).forEach(function (key) {
+      var missing = (data.missing || []).indexOf(key) !== -1;
+      var span = document.createElement("span");
+      span.className = "badge " + (missing ? "err" : "ok");
+      span.textContent = (missing ? "✗ " : "✓ ") + key;
+      box.appendChild(span);
+    });
+    var session = document.createElement("span");
+    session.className = "badge " + (data.has_session ? "ok" : "err");
+    session.textContent = data.has_session ? "✓ 已登录会话" : "✗ 未检测到登录会话";
+    box.appendChild(session);
+    var count = document.createElement("span");
+    count.className = "badge";
+    count.textContent = "共 " + (data.cookie_count || 0) + " 个 cookie";
+    box.appendChild(count);
+  }
+
+  function refreshAuthStatus() {
+    return api("/auth/status").then(renderAuthStatus).catch(function (err) {
+      $("auth-badges").innerHTML =
+        '<span class="badge err">状态获取失败：' + err.message + "</span>";
+    });
+  }
+
+  // ---------------- 自动获取流程 ----------------
+  function setFlowRunning(running) {
+    $("btn-fetch").disabled = running;
+    $("btn-confirm").hidden = !running;
+    $("btn-cancel").hidden = !running;
+  }
+
+  function pollFlowStatus() {
+    api("/auth/fetch/status").then(function (data) {
+      if (data.status === "running") {
+        setFlowRunning(true);
+        setMsg($("flow-msg"), data.message || "获取中……", "run");
+        return;
+      }
+      setFlowRunning(false);
+      stopFlowPolling();
+      if (data.status === "success") {
+        setMsg($("flow-msg"), data.message || "获取成功。", "ok");
+        refreshAuthStatus();
+      } else if (data.status === "failed") {
+        setMsg($("flow-msg"), data.message || "获取失败。", "err");
+      } else if (data.status === "cancelled") {
+        setMsg($("flow-msg"), data.message || "已取消。", "");
+      }
+    }).catch(function (err) {
+      setFlowRunning(false);
+      stopFlowPolling();
+      setMsg($("flow-msg"), "状态查询失败：" + err.message, "err");
+    });
+  }
+
+  function startFlowPolling() {
+    stopFlowPolling();
+    flowPollTimer = setInterval(pollFlowStatus, 2000);
+    pollFlowStatus();
+  }
+
+  function stopFlowPolling() {
+    if (flowPollTimer) { clearInterval(flowPollTimer); flowPollTimer = null; }
+  }
+
+  $("btn-fetch").addEventListener("click", function () {
+    setMsg($("flow-msg"), "正在启动浏览器……", "run");
+    api("/auth/fetch", { method: "POST" }).then(function () {
+      setFlowRunning(true);
+      startFlowPolling();
+    }).catch(function (err) {
+      setMsg($("flow-msg"), "启动失败：" + err.message, "err");
+    });
+  });
+
+  $("btn-confirm").addEventListener("click", function () {
+    api("/auth/fetch/confirm", { method: "POST" }).catch(function (err) {
+      setMsg($("flow-msg"), "确认失败：" + err.message, "err");
+    });
+  });
+
+  $("btn-cancel").addEventListener("click", function () {
+    api("/auth/fetch/cancel", { method: "POST" }).catch(function (err) {
+      setMsg($("flow-msg"), "取消失败：" + err.message, "err");
+    });
+  });
+
+  $("btn-refresh").addEventListener("click", refreshAuthStatus);
+
+  // ---------------- 下载提交与任务列表 ----------------
+  $("btn-submit").addEventListener("click", submitDownload);
+  $("url-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") submitDownload();
+  });
+
+  function submitDownload() {
+    var url = $("url-input").value.trim();
+    if (!url) {
+      setMsg($("submit-msg"), "请输入抖音链接。", "err");
+      return;
+    }
+    setMsg($("submit-msg"), "提交中……", "run");
+    api("/download", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url }),
+    }).then(function (job) {
+      setMsg($("submit-msg"), "已提交任务 " + job.job_id + "。", "ok");
+      $("url-input").value = "";
+      refreshJobs();
+    }).catch(function (err) {
+      setMsg($("submit-msg"), "提交失败：" + err.message, "err");
+    });
+  }
+
+  var STATUS_TEXT = { pending: "排队中", running: "下载中", success: "成功", failed: "失败" };
+
+  function renderJobs(jobs) {
+    var area = $("jobs-area");
+    if (!jobs.length) {
+      area.innerHTML = '<div class="empty">暂无任务</div>';
+      return;
+    }
+    jobs.sort(function (a, b) { return (b.created_at || "").localeCompare(a.created_at || ""); });
+    var rows = jobs.map(function (j) {
+      var stats = j.total ? (j.success + "/" + j.total + (j.skipped ? "（跳过 " + j.skipped + "）" : "")) : "-";
+      var err = j.error ? '<div class="status-failed">' + escapeHtml(j.error) + "</div>" : "";
+      return "<tr>" +
+        '<td class="url" title="' + escapeHtml(j.url) + '">' + escapeHtml(j.url) + "</td>" +
+        '<td class="status-' + j.status + '">' + (STATUS_TEXT[j.status] || j.status) + "</td>" +
+        "<td>" + stats + err + "</td>" +
+        "<td>" + formatTime(j.created_at) + "</td>" +
+        "</tr>";
+    }).join("");
+    area.innerHTML =
+      "<table><thead><tr><th>链接</th><th>状态</th><th>成功/总数</th><th>创建时间</th></tr></thead>" +
+      "<tbody>" + rows + "</tbody></table>";
+  }
+
+  function refreshJobs() {
+    api("/jobs").then(function (data) {
+      renderJobs(data.jobs || []);
+    }).catch(function () { /* 轮询失败静默，下一轮重试 */ });
+  }
+
+  function escapeHtml(text) {
+    var div = document.createElement("div");
+    div.textContent = text == null ? "" : String(text);
+    return div.innerHTML;
+  }
+
+  function formatTime(iso) {
+    if (!iso) return "-";
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleString();
+  }
+
+  // 初始化
+  refreshAuthStatus();
+  refreshJobs();
+  setInterval(refreshJobs, 3000);
+  // 页面加载时若已有获取会话在跑（例如刷新页面），恢复轮询
+  api("/auth/fetch/status").then(function (data) {
+    if (data.status === "running") { setFlowRunning(true); startFlowPolling(); }
+  }).catch(function () {});
+})();
+</script>
+</body>
+</html>
