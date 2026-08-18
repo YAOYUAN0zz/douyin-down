@@ -20,9 +20,10 @@ from pydantic import BaseModel
 from auth import CookieManager
 from config import ConfigLoader
 from control import QueueManager, RateLimiter, RetryHandler
-from core import DouyinAPIClient, DownloaderFactory, URLParser
+from core import DouyinAPIClient, DownloaderFactory, LoginRequiredError, URLParser
 from server.auth_flow import BrowserAuthFlow
 from server.jobs import JobManager
+from server.works import DEFAULT_PAGE_COUNT, WorksListError, list_works
 from storage import FileManager
 from tools.cookie_fetcher import REQUIRED_KEYS
 from utils.logger import setup_logger
@@ -35,10 +36,24 @@ class DownloadRequest(BaseModel):
     url: str
 
 
+class BatchDownloadRequest(BaseModel):
+    urls: List[str]
+
+
+class WorksListRequest(BaseModel):
+    url: str
+    cursor: int = 0
+    count: int = DEFAULT_PAGE_COUNT
+
+
 class JobResponse(BaseModel):
     job_id: str
     status: str
     url: str
+
+
+# 单次批量提交的上限，防止误勾选提交过量任务压垮队列
+MAX_BATCH_URLS = 100
 
 
 class _ServerDeps:
@@ -186,6 +201,36 @@ def build_app(config: ConfigLoader) -> FastAPI:
             raise HTTPException(status_code=400, detail="url is required")
         job = await manager.submit(req.url)
         return JobResponse(job_id=job.job_id, status=job.status, url=job.url)
+
+    @app.post("/api/v1/download/batch")
+    async def create_batch_jobs(req: BatchDownloadRequest) -> Dict[str, List[Dict[str, Any]]]:
+        urls = [u.strip() for u in req.urls if u and u.strip()]
+        if not urls:
+            raise HTTPException(status_code=400, detail="urls is required")
+        if len(urls) > MAX_BATCH_URLS:
+            raise HTTPException(status_code=400, detail=f"一次最多提交 {MAX_BATCH_URLS} 个链接")
+        jobs = [await manager.submit(u) for u in urls]
+        return {"jobs": [{"job_id": j.job_id, "status": j.status, "url": j.url} for j in jobs]}
+
+    @app.post("/api/v1/works/list")
+    async def works_list(req: WorksListRequest) -> Dict[str, Any]:
+        if not req.url or not req.url.strip():
+            raise HTTPException(status_code=400, detail="url is required")
+        try:
+            return await list_works(
+                req.url.strip(),
+                cookies=deps.cookie_manager.get_cookies(),
+                proxy=deps.config.get("proxy"),
+                cursor=req.cursor,
+                count=req.count,
+            )
+        except WorksListError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        except LoginRequiredError as exc:
+            raise HTTPException(
+                status_code=401,
+                detail=f"登录态失效，请先在「下载参数状态」中重新获取参数（{exc}）",
+            )
 
     @app.get("/api/v1/jobs/{job_id}")
     async def get_job(job_id: str) -> Dict[str, Any]:

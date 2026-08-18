@@ -336,6 +336,8 @@ python run.py --serve --serve-port 8000
 |--------|------|------|
 | GET | `/` | Web UI（可视化界面） |
 | POST | `/api/v1/download` | 提交 `{"url": "..."}`，返回 `{job_id, status}` |
+| POST | `/api/v1/download/batch` | 批量提交 `{"urls": [...]}`（单次上限 100） |
+| POST | `/api/v1/works/list` | 预览作品列表 `{"url", "cursor", "count"}`，返回条目 + 分页游标 |
 | GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数 |
 | GET | `/api/v1/jobs` | 列出最近的 job（按 TTL + 容量剪裁） |
 | GET | `/api/v1/auth/status` | 下载参数（cookie/msToken）就绪状态与缺失项 |
@@ -352,6 +354,8 @@ python run.py --serve --serve-port 8000
 `--serve` 启动后，浏览器访问 `http://127.0.0.1:8000/` 即可使用 Web UI：
 
 - **提交下载**：粘贴视频/图集/主页/合集链接，实时查看任务状态；
+- **作品列表按需下载**：输入主页/合集/音乐链接先「获取列表」（封面/描述/类型/发布时间/点赞，
+  支持分页加载更多），勾选后仅下载选中的作品；
 - **参数状态**：面板展示必需参数（`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`）是否齐全；
 - **自动获取参数**：点击按钮后服务器打开浏览器窗口，完成抖音登录即**自动检测并保存** cookie 与
   msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认。

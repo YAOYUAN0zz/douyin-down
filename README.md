@@ -346,6 +346,8 @@ Endpoints:
 |--------|------|-------------|
 | GET | `/` | Web UI |
 | POST | `/api/v1/download` | Submit `{"url": "..."}`, returns `{job_id, status}` |
+| POST | `/api/v1/download/batch` | Batch submit `{"urls": [...]}` (max 100 per call) |
+| POST | `/api/v1/works/list` | Preview a works list `{"url", "cursor", "count"}`, returns items + pagination cursor |
 | GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts |
 | GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
 | GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
@@ -361,6 +363,7 @@ Finished jobs are pruned by TTL (default 24h) and max-jobs (default 500) — in-
 After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 
 - **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
+- **Pick-and-download from a works list:** enter a profile/mix/music link, fetch the list first (cover, description, type, publish date, likes, with load-more pagination), then download only the checked items.
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
 - **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
 

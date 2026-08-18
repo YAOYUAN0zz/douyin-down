@@ -58,6 +58,13 @@
   .status-success { color: var(--ok); }
   .status-failed { color: var(--err); }
   .empty { color: var(--muted); padding: 12px 0; }
+  td.works-desc { max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cover-thumb {
+    width: 48px; height: 64px; object-fit: cover; border-radius: 6px;
+    background: #eceef1; display: block;
+  }
+  .works-toolbar { margin-top: 12px; }
+  .works-count { color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -91,6 +98,22 @@
       <button class="primary" id="btn-submit">开始下载</button>
     </div>
     <div class="flow-msg" id="submit-msg" hidden></div>
+  </div>
+
+  <div class="card">
+    <h2>作品列表（按需下载）</h2>
+    <div class="row">
+      <input type="text" id="works-url-input"
+             placeholder="主页 / 合集 / 音乐 / 单作品链接，先获取列表再勾选下载">
+      <button class="primary" id="btn-works-fetch">获取列表</button>
+    </div>
+    <div class="flow-msg" id="works-msg" hidden></div>
+    <div id="works-area"></div>
+    <div class="row works-toolbar" id="works-toolbar" hidden>
+      <button class="primary" id="btn-works-download">下载选中</button>
+      <button id="btn-works-more" hidden>加载更多</button>
+      <span class="works-count" id="works-count"></span>
+    </div>
   </div>
 
   <div class="card">
@@ -242,6 +265,169 @@
     }).catch(function (err) {
       setMsg($("submit-msg"), "提交失败：" + err.message, "err");
     });
+  }
+
+  // ---------------- 作品列表（按需下载） ----------------
+  var worksState = { url: "", items: [], selected: {}, cursor: 0, hasMore: false, loading: false };
+
+  $("btn-works-fetch").addEventListener("click", function () { fetchWorks(false); });
+  $("works-url-input").addEventListener("keydown", function (e) {
+    if (e.key === "Enter") fetchWorks(false);
+  });
+  $("btn-works-more").addEventListener("click", function () { fetchWorks(true); });
+  $("btn-works-download").addEventListener("click", downloadSelectedWorks);
+
+  function fetchWorks(loadMore) {
+    if (worksState.loading) return;
+    var url = loadMore ? worksState.url : $("works-url-input").value.trim();
+    if (!url) {
+      setMsg($("works-msg"), "请输入链接。", "err");
+      return;
+    }
+    worksState.loading = true;
+    $("btn-works-fetch").disabled = true;
+    $("btn-works-more").disabled = true;
+    setMsg($("works-msg"), loadMore ? "加载更多中……" : "获取作品列表中……", "run");
+    api("/works/list", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: url, cursor: loadMore ? worksState.cursor : 0 }),
+    }).then(function (data) {
+      if (!loadMore) {
+        worksState.url = url;
+        worksState.items = [];
+        worksState.selected = {};
+      }
+      var fresh = (data.items || []).filter(function (item) {
+        return !worksState.items.some(function (existing) {
+          return existing.aweme_id === item.aweme_id;
+        });
+      });
+      worksState.items = worksState.items.concat(fresh);
+      worksState.cursor = data.cursor || 0;
+      worksState.hasMore = !!data.has_more;
+      setMsg($("works-msg"),
+        "已获取 " + worksState.items.length + " 个作品" + (worksState.hasMore ? "（还有更多）" : "") + "。",
+        "ok");
+      renderWorks();
+    }).catch(function (err) {
+      setMsg($("works-msg"), "获取失败：" + err.message, "err");
+    }).finally(function () {
+      worksState.loading = false;
+      $("btn-works-fetch").disabled = false;
+      $("btn-works-more").disabled = false;
+    });
+  }
+
+  function selectedWorkIds() {
+    return worksState.items.filter(function (item) {
+      return worksState.selected[item.aweme_id];
+    });
+  }
+
+  function renderWorks() {
+    var area = $("works-area");
+    var toolbar = $("works-toolbar");
+    if (!worksState.items.length) {
+      area.innerHTML = "";
+      toolbar.hidden = true;
+      return;
+    }
+    var allChecked = worksState.items.every(function (item) {
+      return worksState.selected[item.aweme_id];
+    });
+    var rows = worksState.items.map(function (item) {
+      var checked = worksState.selected[item.aweme_id] ? " checked" : "";
+      var cover = item.cover
+        ? '<img class="cover-thumb" loading="lazy" referrerpolicy="no-referrer" src="' +
+          escapeHtml(item.cover) + '" alt="">'
+        : '<div class="cover-thumb"></div>';
+      var typeText = item.media_type === "images"
+        ? "图集×" + (item.image_count || "?")
+        : "视频 " + formatDuration(item.duration_seconds);
+      return "<tr>" +
+        '<td><input type="checkbox" class="works-check" data-id="' + escapeHtml(item.aweme_id) + '"' + checked + "></td>" +
+        "<td>" + cover + "</td>" +
+        '<td class="works-desc" title="' + escapeHtml(item.desc) + '">' +
+          (escapeHtml(item.desc) || "（无描述）") + "</td>" +
+        "<td>" + typeText + "</td>" +
+        "<td>" + formatEpoch(item.create_time) + "</td>" +
+        "<td>" + formatCount(item.stats && item.stats.digg_count) + "</td>" +
+        "</tr>";
+    }).join("");
+    area.innerHTML =
+      "<table><thead><tr>" +
+      '<th><input type="checkbox" id="works-check-all"' + (allChecked ? " checked" : "") + "></th>" +
+      "<th>封面</th><th>描述</th><th>类型</th><th>发布时间</th><th>点赞</th>" +
+      "</tr></thead><tbody>" + rows + "</tbody></table>";
+    toolbar.hidden = false;
+    $("btn-works-more").hidden = !worksState.hasMore;
+    updateWorksCount();
+
+    $("works-check-all").addEventListener("change", function (e) {
+      worksState.items.forEach(function (item) {
+        worksState.selected[item.aweme_id] = e.target.checked;
+      });
+      Array.prototype.forEach.call(document.querySelectorAll(".works-check"), function (cb) {
+        cb.checked = e.target.checked;
+      });
+      updateWorksCount();
+    });
+    Array.prototype.forEach.call(document.querySelectorAll(".works-check"), function (cb) {
+      cb.addEventListener("change", function () {
+        worksState.selected[cb.getAttribute("data-id")] = cb.checked;
+        var all = worksState.items.every(function (item) {
+          return worksState.selected[item.aweme_id];
+        });
+        $("works-check-all").checked = all;
+        updateWorksCount();
+      });
+    });
+  }
+
+  function updateWorksCount() {
+    var n = selectedWorkIds().length;
+    $("works-count").textContent = "已选 " + n + " / " + worksState.items.length + " 个作品";
+    $("btn-works-download").disabled = n === 0;
+  }
+
+  function downloadSelectedWorks() {
+    var picked = selectedWorkIds();
+    if (!picked.length) return;
+    $("btn-works-download").disabled = true;
+    setMsg($("works-msg"), "提交 " + picked.length + " 个下载任务中……", "run");
+    api("/download/batch", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ urls: picked.map(function (item) { return item.download_url; }) }),
+    }).then(function (data) {
+      setMsg($("works-msg"), "已提交 " + (data.jobs || []).length + " 个下载任务。", "ok");
+      refreshJobs();
+    }).catch(function (err) {
+      setMsg($("works-msg"), "提交失败：" + err.message, "err");
+    }).finally(function () {
+      $("btn-works-download").disabled = false;
+      updateWorksCount();
+    });
+  }
+
+  function formatDuration(seconds) {
+    seconds = parseInt(seconds, 10) || 0;
+    var m = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    return m + ":" + (s < 10 ? "0" : "") + s;
+  }
+
+  function formatEpoch(epoch) {
+    epoch = parseInt(epoch, 10) || 0;
+    if (!epoch) return "-";
+    return new Date(epoch * 1000).toLocaleDateString();
+  }
+
+  function formatCount(n) {
+    n = parseInt(n, 10) || 0;
+    if (n >= 10000) return (n / 10000).toFixed(1) + "w";
+    return String(n);
   }
 
   var STATUS_TEXT = { pending: "排队中", running: "下载中", success: "成功", failed: "失败" };
