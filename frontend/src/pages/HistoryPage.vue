@@ -2,7 +2,6 @@
 import {
   NButton,
   NCard,
-  NCode,
   NDrawer,
   NDrawerContent,
   NEmpty,
@@ -18,7 +17,8 @@ import {
 import { computed, onMounted, ref, watch } from "vue";
 import { api } from "../api";
 import type { HistoryDetail, HistoryItem, HistoryStats } from "../api/types";
-import { formatUnixDate, formatUnixDateTime } from "../shared/format";
+import JsonViewer from "../components/JsonViewer.vue";
+import { formatCount, formatDuration, formatUnixDate, formatUnixDateTime } from "../shared/format";
 import { useJobsStore } from "../stores/jobs";
 
 const message = useMessage();
@@ -167,6 +167,87 @@ async function openDetail(item: HistoryItem) {
 const metadataText = computed(() =>
   detail.value?.metadata ? JSON.stringify(detail.value.metadata, null, 2) : "",
 );
+
+/** 按路径安全取值：元数据是上游原始 JSON，字段有无都不保证 */
+function pick(path: (string | number)[]): unknown {
+  let cur: unknown = detail.value?.metadata;
+  for (const key of path) {
+    if (typeof cur !== "object" || cur === null) return undefined;
+    cur = (cur as Record<string | number, unknown>)[key];
+  }
+  return cur;
+}
+
+function pickNumber(path: (string | number)[]): number | undefined {
+  const v = pick(path);
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
+
+function pickString(path: (string | number)[]): string {
+  const v = pick(path);
+  return typeof v === "string" ? v : "";
+}
+
+/** 摘要区：从上游原始 JSON 里挑出真正常看的字段，其余留给下方 JSON 树 */
+const summaryRows = computed(() => {
+  if (!detail.value) return [];
+  const d = detail.value;
+  const durationMs = pickNumber(["video", "duration"]) ?? pickNumber(["duration"]);
+  const width = pickNumber(["video", "width"]);
+  const height = pickNumber(["video", "height"]);
+  const images = pick(["images"]);
+  const tags = Array.isArray(pick(["text_extra"]))
+    ? (pick(["text_extra"]) as Record<string, unknown>[])
+        .map((t) => (typeof t.hashtag_name === "string" ? t.hashtag_name : ""))
+        .filter(Boolean)
+    : [];
+  const stat = (key: string) => pickNumber(["statistics", key]);
+
+  const rows: { label: string; value: string }[] = [
+    { label: "作品 ID", value: d.aweme_id },
+    { label: "类型", value: TYPE_LABEL[d.aweme_type] ?? d.aweme_type },
+    { label: "作者", value: d.author_name || "未知作者" },
+    { label: "发布时间", value: formatUnixDateTime(d.create_time) },
+    { label: "下载时间", value: formatUnixDateTime(d.download_time) },
+    { label: "输出目录", value: d.file_path || "" },
+    { label: "来源任务", value: d.job_id },
+    {
+      label: "时长",
+      value: durationMs ? formatDuration(Math.round(durationMs / 1000)) : "",
+    },
+    { label: "分辨率", value: width && height ? `${width}×${height}` : "" },
+    {
+      label: "图片数",
+      value: Array.isArray(images) ? `${images.length} 张` : "",
+    },
+    {
+      label: "互动",
+      value: [
+        stat("digg_count") !== undefined ? `♥ ${formatCount(stat("digg_count"))}` : "",
+        stat("comment_count") !== undefined ? `💬 ${formatCount(stat("comment_count"))}` : "",
+        stat("collect_count") !== undefined ? `⭐ ${formatCount(stat("collect_count"))}` : "",
+        stat("share_count") !== undefined ? `↗ ${formatCount(stat("share_count"))}` : "",
+      ]
+        .filter(Boolean)
+        .join("　"),
+    },
+    { label: "音乐", value: pickString(["music", "title"]) },
+    { label: "话题", value: tags.map((t) => `#${t}`).join(" ") },
+  ];
+  return rows.filter((row) => row.value);
+});
+
+const metadataSize = computed(() => `${(metadataText.value.length / 1024).toFixed(1)} KB`);
+
+async function copyMetadata() {
+  if (!metadataText.value) return;
+  try {
+    await navigator.clipboard.writeText(metadataText.value);
+    message.success("已复制完整元数据 JSON");
+  } catch {
+    message.error("复制失败，请手动选择文本复制", { duration: 8000, closable: true });
+  }
+}
 </script>
 
 <template>
@@ -325,7 +406,7 @@ const metadataText = computed(() =>
 
     <n-drawer
       :show="detail !== null || detailLoading"
-      :width="520"
+      :width="640"
       placement="right"
       @update:show="
         if (!$event) {
@@ -336,18 +417,24 @@ const metadataText = computed(() =>
       <n-drawer-content :title="detail?.title || '作品元数据'" closable>
         <n-skeleton v-if="detailLoading" text :repeat="8" />
         <template v-else-if="detail">
-          <n-space vertical size="small">
-            <div class="muted">作品 ID：{{ detail.aweme_id }}</div>
-            <div v-if="detail.job_id" class="muted">来源任务：{{ detail.job_id }}</div>
-            <div v-if="detail.file_path" class="muted">输出目录：{{ detail.file_path }}</div>
-          </n-space>
-          <n-code
-            v-if="metadataText"
-            class="metadata"
-            :code="metadataText"
-            language="json"
-            word-wrap
-          />
+          <table class="summary">
+            <tbody>
+              <tr v-for="row in summaryRows" :key="row.label">
+                <th>{{ row.label }}</th>
+                <td>{{ row.value }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <template v-if="detail.metadata">
+            <div class="meta-head">
+              <span class="muted">原始元数据（{{ metadataSize }}，点击键名展开/折叠）</span>
+              <n-button size="tiny" quaternary @click="copyMetadata">复制 JSON</n-button>
+            </div>
+            <div class="metadata">
+              <JsonViewer :value="detail.metadata" :default-expand-depth="1" />
+            </div>
+          </template>
           <n-empty v-else description="该记录未保存元数据（或已损坏）" />
         </template>
       </n-drawer-content>
@@ -473,11 +560,37 @@ const metadataText = computed(() =>
   white-space: nowrap;
 }
 
+/* 抽屉：摘要表 + 原始 JSON 树 */
+.summary {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.summary th {
+  width: 5.5em;
+  padding: 4px 8px 4px 0;
+  text-align: left;
+  font-weight: 400;
+  color: var(--dd-text-secondary);
+  vertical-align: top;
+  white-space: nowrap;
+}
+.summary td {
+  padding: 4px 0;
+  word-break: break-all;
+}
+.meta-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dd-space-2);
+  margin-top: var(--dd-space-4);
+  padding-top: var(--dd-space-2);
+  border-top: 1px solid var(--dd-border);
+}
 .metadata {
-  display: block;
-  margin-top: var(--dd-space-3);
-  max-height: 60vh;
+  margin-top: var(--dd-space-2);
+  max-height: 55vh;
   overflow: auto;
-  font-size: 12px;
 }
 </style>
