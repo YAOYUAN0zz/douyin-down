@@ -1,6 +1,9 @@
 """纯 Python 的后台下载任务模型，不依赖 FastAPI。
 
 将 job 生命周期从 HTTP 层解耦，便于被 CLI 以外的入口复用（如未来的 MCP server）。
+
+持久化：终态 job（success/partial/failed/cancelled）写入 storage.database 的 job 表，
+服务重启后由 load_persisted() 恢复；pending/running 只存在于内存。
 """
 
 from __future__ import annotations
@@ -23,9 +26,11 @@ class JobStatus:
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"
+    PARTIAL = "partial"  # 跑完但部分条目失败
     FAILED = "failed"
+    CANCELLED = "cancelled"
 
-    TERMINAL = frozenset({SUCCESS, FAILED})
+    TERMINAL = frozenset({SUCCESS, PARTIAL, FAILED, CANCELLED})
 
 
 class DownloadJob:
@@ -74,6 +79,24 @@ class DownloadJob:
             "progress": dict(self.progress, current=self.progress.get("current")),
         }
 
+    @classmethod
+    def from_persisted(cls, row: Dict[str, Any]) -> "DownloadJob":
+        """从数据库行恢复终态 job（进度字段不恢复）。"""
+        job = cls(job_id=str(row.get("job_id")), url=str(row.get("url") or ""))
+        job.options = row.get("overrides") or None
+        job.status = str(row.get("status") or JobStatus.FAILED)
+        job.created_at = str(row.get("created_at") or "")
+        job.started_at = row.get("started_at")
+        job.finished_at = row.get("finished_at")
+        job.total = int(row.get("total") or 0)
+        job.success = int(row.get("success") or 0)
+        job.failed = int(row.get("failed") or 0)
+        job.skipped = int(row.get("skipped") or 0)
+        job.error = row.get("error")
+        if row.get("author_nickname"):
+            job.progress["author"] = row.get("author_nickname")
+        return job
+
 
 class JobProgressReporter:
     """把下载器的进度回调写进 DownloadJob，供 /jobs 轮询展示。
@@ -116,16 +139,15 @@ class JobProgressReporter:
 
 
 class JobManager:
-    """内存 job 存储 + 并发执行器，带 TTL + 容量上限。
-
-    不做持久化——进程重启就丢失——因为当前目标只是暴露 HTTP 接口。
-    如需持久化可以后续在此加一层 SQLite。
+    """内存 job 存储 + 并发执行器，带 TTL + 容量上限 + 可选 SQLite 持久化。
 
     剪裁策略：
     - 每次 submit 前先剪裁一次：
         a. 丢弃 finished_monotonic 超过 job_ttl_seconds 的终态 job；
+          （从数据库恢复的 job 无 finished_monotonic，不参与 TTL 剪裁）
         b. 若剩余总数仍超过 max_jobs，按 finished_monotonic 升序淘汰最老的终态 job；
         c. in-flight（pending/running）job 永不淘汰。
+    - 内存剪裁不删数据库行；数据库行只在 delete/clear 时删除。
     """
 
     DEFAULT_MAX_JOBS = 500
@@ -138,13 +160,29 @@ class JobManager:
         max_concurrency: int = 2,
         max_jobs: int = DEFAULT_MAX_JOBS,
         job_ttl_seconds: float = DEFAULT_JOB_TTL_SECONDS,
+        database: Optional[Any] = None,
     ):
         self.executor = executor
+        self.database = database
         self._jobs: Dict[str, DownloadJob] = {}
         self._semaphore = asyncio.Semaphore(max(1, max_concurrency))
         self._lock = asyncio.Lock()
         self.max_jobs = max(1, int(max_jobs))
         self.job_ttl_seconds = max(0.0, float(job_ttl_seconds))
+
+    async def load_persisted(self) -> int:
+        """启动时从数据库恢复终态 job（最新的 max_jobs 条）。"""
+        if self.database is None:
+            return 0
+        rows = await self.database.load_terminal_jobs(limit=self.max_jobs)
+        restored = 0
+        async with self._lock:
+            for row in rows:
+                job = DownloadJob.from_persisted(row)
+                if job.job_id and job.job_id not in self._jobs:
+                    self._jobs[job.job_id] = job
+                    restored += 1
+        return restored
 
     async def submit(self, url: str, options: Optional[Dict[str, Any]] = None) -> DownloadJob:
         job_id = uuid.uuid4().hex[:12]
@@ -156,8 +194,66 @@ class JobManager:
         job._task = asyncio.create_task(self._run(job))
         return job
 
+    async def cancel(self, job_id: str) -> Optional[DownloadJob]:
+        """取消 in-flight job。返回 job；不存在返回 None；已终态抛 ValueError。"""
+        async with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return None
+        if job.status in JobStatus.TERMINAL:
+            raise ValueError("job already finished")
+        if job._task is not None and not job._task.done():
+            job._task.cancel()
+            # 等待任务收尾（_run 的 CancelledError 分支落终态并持久化）
+            try:
+                await job._task
+            except asyncio.CancelledError:
+                pass
+        # 兜底：task 已 done 但状态未落（不应发生）
+        if job.status not in JobStatus.TERMINAL:
+            job.status = JobStatus.CANCELLED
+            job.finished_at = _now_iso()
+            job.finished_monotonic = time.monotonic()
+            await self._persist(job)
+        return job
+
+    async def retry(self, job_id: str) -> Optional[DownloadJob]:
+        """以原参数重建一个新 job。原 job 不存在返回 None；未终态抛 ValueError。"""
+        async with self._lock:
+            job = self._jobs.get(job_id)
+        if job is None:
+            return None
+        if job.status not in JobStatus.TERMINAL:
+            raise ValueError("job still in flight")
+        return await self.submit(job.url, options=dict(job.options) if job.options else None)
+
+    async def delete(self, job_id: str) -> Optional[DownloadJob]:
+        """删除终态 job（内存 + 数据库）。不存在返回 None；未终态抛 ValueError。"""
+        async with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return None
+            if job.status not in JobStatus.TERMINAL:
+                raise ValueError("job still in flight")
+            self._jobs.pop(job_id, None)
+        if self.database is not None:
+            await self.database.delete_jobs([job_id])
+        return job
+
+    async def clear_finished(self) -> int:
+        """清空全部终态 job（内存 + 数据库），返回清除数量。"""
+        async with self._lock:
+            terminal_ids = [
+                jid for jid, j in self._jobs.items() if j.status in JobStatus.TERMINAL
+            ]
+            for jid in terminal_ids:
+                self._jobs.pop(jid, None)
+        if self.database is not None and terminal_ids:
+            await self.database.delete_jobs(terminal_ids)
+        return len(terminal_ids)
+
     def _prune_locked(self) -> None:
-        """持锁内调用：按 TTL + 容量上限剪裁终态 job。"""
+        """持锁内调用：按 TTL + 容量上限剪裁终态 job（仅内存）。"""
         now = time.monotonic()
 
         # 1) TTL
@@ -185,24 +281,46 @@ class JobManager:
         for _, jid in terminal_jobs[:overflow]:
             self._jobs.pop(jid, None)
 
+    async def _persist(self, job: DownloadJob) -> None:
+        if self.database is None:
+            return
+        try:
+            payload = job.to_dict()
+            payload["author_nickname"] = job.progress.get("author")
+            payload["overrides"] = job.options
+            await self.database.upsert_job(payload)
+        except Exception:
+            # 持久化失败不阻断任务收尾；下次终态写入会重试
+            pass
+
     async def _run(self, job: DownloadJob) -> None:
-        async with self._semaphore:
-            job.status = JobStatus.RUNNING
-            job.started_at = _now_iso()
-            try:
-                counts = await self.executor(job)
-                job.total = int(counts.get("total", 0))
-                job.success = int(counts.get("success", 0))
-                job.failed = int(counts.get("failed", 0))
-                job.skipped = int(counts.get("skipped", 0))
-                # 只要跑完就是 success；具体成功/失败个数通过字段区分
-                job.status = JobStatus.SUCCESS if job.failed == 0 else JobStatus.FAILED
-            except Exception as exc:
-                job.status = JobStatus.FAILED
-                job.error = f"{type(exc).__name__}: {exc}"
-            finally:
-                job.finished_at = _now_iso()
-                job.finished_monotonic = time.monotonic()
+        try:
+            async with self._semaphore:
+                job.status = JobStatus.RUNNING
+                job.started_at = _now_iso()
+                try:
+                    counts = await self.executor(job)
+                    job.total = int(counts.get("total", 0))
+                    job.success = int(counts.get("success", 0))
+                    job.failed = int(counts.get("failed", 0))
+                    job.skipped = int(counts.get("skipped", 0))
+                    if job.failed == 0:
+                        job.status = JobStatus.SUCCESS
+                    elif job.success > 0 or job.skipped > 0:
+                        # 部分条目失败：与全军覆没区分开
+                        job.status = JobStatus.PARTIAL
+                    else:
+                        job.status = JobStatus.FAILED
+                except Exception as exc:
+                    job.status = JobStatus.FAILED
+                    job.error = f"{type(exc).__name__}: {exc}"
+        except asyncio.CancelledError:
+            job.status = JobStatus.CANCELLED
+        finally:
+            job.finished_at = _now_iso()
+            job.finished_monotonic = time.monotonic()
+            # shield：cancel() 引发的 CancelledError 不应打断持久化写入
+            await asyncio.shield(self._persist(job))
 
     async def get(self, job_id: str) -> Optional[DownloadJob]:
         async with self._lock:

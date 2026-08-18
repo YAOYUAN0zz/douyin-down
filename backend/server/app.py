@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -23,6 +23,7 @@ from server.auth_flow import BrowserAuthFlow
 from server.deps import ServerDeps, execute_download
 from server.jobs import DownloadJob, JobManager, JobProgressReporter
 from server.schemas import CODE_VALIDATION, ApiError, fail
+from storage import Database
 from utils.logger import setup_logger
 
 logger = setup_logger("REST")
@@ -44,6 +45,11 @@ _PLACEHOLDER_HTML = """<!doctype html>
 def build_app(config: ConfigLoader) -> FastAPI:
     deps = ServerDeps(config)
 
+    # 与 CLI 对齐：database 开启时启用去重/历史与 job 持久化
+    database: Optional[Database] = None
+    if config.get("database", True):
+        database = Database(str(config.get("database_path") or "dy_downloader.db"))
+
     async def executor(job: DownloadJob) -> Dict[str, int]:
         return await execute_download(
             job.url,
@@ -51,6 +57,7 @@ def build_app(config: ConfigLoader) -> FastAPI:
             job.options,
             progress_reporter=JobProgressReporter(job),
             job_id=job.job_id,
+            database=database,
         )
 
     server_cfg = config.get("server") or {}
@@ -63,6 +70,7 @@ def build_app(config: ConfigLoader) -> FastAPI:
         job_ttl_seconds=float(
             server_cfg.get("job_ttl_seconds") or JobManager.DEFAULT_JOB_TTL_SECONDS
         ),
+        database=database,
     )
 
     auth_flow_cfg = server_cfg.get("auth_flow") or {}
@@ -77,9 +85,16 @@ def build_app(config: ConfigLoader) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        if database is not None:
+            await database.initialize()
+            restored = await manager.load_persisted()
+            if restored:
+                logger.info(f"Restored {restored} finished jobs from database")
         yield
         await auth_flow.shutdown()
         await manager.shutdown()
+        if database is not None:
+            await database.close()
 
     app = FastAPI(
         title="Douyin Downloader API",
@@ -90,6 +105,7 @@ def build_app(config: ConfigLoader) -> FastAPI:
     app.state.job_manager = manager
     app.state.deps = deps
     app.state.auth_flow = auth_flow
+    app.state.database = database
 
     # ---------------- 统一响应模型的异常处理 ----------------
 

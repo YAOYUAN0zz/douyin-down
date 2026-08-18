@@ -26,7 +26,7 @@ export interface JobProgress {
   author: string | null;
 }
 
-export type JobStatus = "pending" | "running" | "success" | "failed";
+export type JobStatus = "pending" | "running" | "success" | "partial" | "failed" | "cancelled";
 
 export interface JobDto {
   job_id: string;

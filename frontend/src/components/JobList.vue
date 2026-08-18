@@ -1,28 +1,53 @@
 <script setup lang="ts">
-import { NEmpty, NProgress, NSpin, NTag, NTooltip } from "naive-ui";
+import {
+  NButton,
+  NEmpty,
+  NPopconfirm,
+  NProgress,
+  NSpin,
+  NTag,
+  NTooltip,
+  useMessage,
+} from "naive-ui";
 import type { JobDto } from "../api/types";
 import { formatAbsoluteTime, formatBytes, formatRelativeTime } from "../shared/format";
 import { useJobsStore } from "../stores/jobs";
 
 defineProps<{
   jobs: JobDto[];
+  /** 紧凑模式（下载页最近任务）：隐藏操作按钮 */
   compact?: boolean;
 }>();
 
+const emit = defineEmits<{
+  select: [job: JobDto];
+}>();
+
 const store = useJobsStore();
+const message = useMessage();
 
 const STATUS_META: Record<
   string,
-  { text: string; type: "default" | "info" | "success" | "error" }
+  { text: string; type: "default" | "info" | "success" | "warning" | "error" }
 > = {
   pending: { text: "排队中", type: "default" },
   running: { text: "下载中", type: "info" },
   success: { text: "完成", type: "success" },
+  partial: { text: "部分失败", type: "warning" },
   failed: { text: "失败", type: "error" },
+  cancelled: { text: "已取消", type: "default" },
 };
 
 function statusMeta(status: string) {
   return STATUS_META[status] ?? { text: status, type: "default" as const };
+}
+
+function isActive(job: JobDto): boolean {
+  return job.status === "pending" || job.status === "running";
+}
+
+function isRetryable(job: JobDto): boolean {
+  return job.status === "failed" || job.status === "partial" || job.status === "cancelled";
 }
 
 function bytePercent(job: JobDto): number | null {
@@ -47,8 +72,18 @@ function resultText(job: JobDto): string {
   return parts.join(" / ");
 }
 
+async function run(action: Promise<unknown>, okMsg: string) {
+  try {
+    await action;
+    message.success(okMsg);
+  } catch (err) {
+    message.error((err as Error).message, { duration: 8000, closable: true });
+  }
+}
+
 async function copyOutputDir(path: string) {
   await navigator.clipboard.writeText(path);
+  message.success("已复制输出目录");
 }
 </script>
 
@@ -56,9 +91,11 @@ async function copyOutputDir(path: string) {
   <n-spin :show="store.loading">
     <n-empty v-if="!jobs.length && !store.loading" description="暂无任务" />
     <div v-else class="job-list">
-      <div v-for="job in jobs" :key="job.job_id" class="job-row">
+      <div v-for="job in jobs" :key="job.job_id" class="job-row" @click="emit('select', job)">
         <div class="job-row-main">
-          <a :href="job.url" target="_blank" rel="noreferrer" class="job-url">{{ job.url }}</a>
+          <a :href="job.url" target="_blank" rel="noreferrer" class="job-url" @click.stop>{{
+            job.url
+          }}</a>
           <n-tag v-if="job.options?.video_quality" size="tiny" round>
             {{ job.options.video_quality }}
           </n-tag>
@@ -68,6 +105,33 @@ async function copyOutputDir(path: string) {
           <span class="job-time" :title="formatAbsoluteTime(job.created_at)">
             {{ formatRelativeTime(job.created_at) }}
           </span>
+          <template v-if="!compact">
+            <n-button
+              v-if="isActive(job)"
+              size="tiny"
+              @click.stop="run(store.cancel(job.job_id), '已取消')"
+            >
+              取消
+            </n-button>
+            <n-button
+              v-if="isRetryable(job)"
+              size="tiny"
+              type="primary"
+              secondary
+              @click.stop="run(store.retry(job.job_id), '已按原参数重新提交')"
+            >
+              重试
+            </n-button>
+            <n-popconfirm
+              v-if="!isActive(job)"
+              @positive-click="run(store.remove(job.job_id), '已删除')"
+            >
+              <template #trigger>
+                <n-button size="tiny" quaternary type="error" @click.stop>删除</n-button>
+              </template>
+              删除该任务记录？（不影响已下载文件）
+            </n-popconfirm>
+          </template>
         </div>
 
         <div v-if="job.status === 'running'" class="job-progress">
@@ -89,7 +153,10 @@ async function copyOutputDir(path: string) {
           <span>{{ resultText(job) }}</span>
           <n-tooltip v-if="job.progress.output_dir" trigger="hover">
             <template #trigger>
-              <span class="job-output-dir" @click="copyOutputDir(job.progress.output_dir ?? '')">
+              <span
+                class="job-output-dir"
+                @click.stop="copyOutputDir(job.progress.output_dir ?? '')"
+              >
                 📁 {{ job.progress.output_dir }}
               </span>
             </template>
@@ -115,6 +182,10 @@ async function copyOutputDir(path: string) {
   display: flex;
   flex-direction: column;
   gap: var(--dd-space-2);
+  cursor: pointer;
+}
+.job-row:hover {
+  border-color: #2080f0;
 }
 .job-row-main {
   display: flex;
@@ -124,7 +195,7 @@ async function copyOutputDir(path: string) {
 }
 .job-url {
   color: inherit;
-  max-width: 480px;
+  max-width: 420px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

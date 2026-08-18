@@ -56,10 +56,17 @@
 
 ### 任务
 
-| Method | Path | data |
+| Method | Path | 说明 / data |
 |---|---|---|
-| GET | `/jobs` | `{jobs: JobDto[]}`（未分页；分页/筛选属 M2） |
+| GET | `/jobs?status=&page=&page_size=` | `{jobs: JobDto[], total, page, page_size}`；服务端按创建时间倒序。`status` ∈ all/active/pending/running/success/partial/failed/cancelled（默认 all）；`page_size=0` 表示不分页 |
+| GET | `/jobs/events?limit=` | **SSE**：持续推送 `data: {"jobs": [...]}` 帧，有活动任务每 1s、空闲每 10s；`limit>0` 推送 N 次后结束（调试用） |
 | GET | `/jobs/{job_id}` | `JobDto`（含 `progress`：step/detail/items 计数/字节级 current/output_dir/author） |
+| POST | `/jobs/{job_id}/cancel` | 取消 in-flight 任务 → 更新后的 JobDto；已结束 → 409/40900 |
+| POST | `/jobs/{job_id}/retry` | 以原 URL+参数重建新任务 → 新 JobDto；未结束 → 409 |
+| DELETE | `/jobs/{job_id}` | 删除已结束任务（内存+数据库）→ `{deleted: job_id}`；进行中 → 409 |
+| POST | `/jobs/clear` | 清空全部已结束任务 → `{deleted: N}` |
+
+任务状态机：`pending → running → success / partial / failed / cancelled`（partial=部分条目失败）。终态任务持久化到 SQLite（`config.database` 开启时，默认开启），服务重启后自动恢复；下载去重/历史与 CLI 对齐启用。
 
 ### 下载参数（auth）
 
@@ -73,4 +80,4 @@
 
 ## 规划中的端点（见 `webui-redesign-report.md` §5）
 
-M2：jobs 取消/重试/删除/清空、分页筛选、SSE `/jobs/events`；M3：`GET/PUT /settings`、`/resolve`；M4：`/history*`、通知测试。（发现/直播录制已按用户决定砍掉，不做 Web 化。）
+M3：`GET/PUT /settings`、`/resolve`；M4：`/history*`、通知测试。（发现/直播录制已按用户决定砍掉，不做 Web 化。）

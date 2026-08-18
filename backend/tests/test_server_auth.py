@@ -20,7 +20,7 @@ from server.auth_flow import AuthFlowStatus, BrowserAuthFlow
 
 def _make_app(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     return build_app(config)
 
 
@@ -75,7 +75,7 @@ def test_disk_cookies_survive_restart_over_config_cookies(tmp_path):
     cookie_file.write_text(json.dumps(fresh), encoding="utf-8")
 
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path), cookies={"msToken": "stale", "ttwid": "stale"})
+    config.update(path=str(tmp_path), database=False, cookies={"msToken": "stale", "ttwid": "stale"})
     config.config_path = str(tmp_path / "config.yml")
 
     app = build_app(config)
@@ -89,7 +89,7 @@ def test_config_cookies_seed_first_run(tmp_path):
     import json
 
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path), cookies={"msToken": "seed", "ttwid": "seed"})
+    config.update(path=str(tmp_path), database=False, cookies={"msToken": "seed", "ttwid": "seed"})
     config.config_path = str(tmp_path / "config.yml")
 
     app = build_app(config)

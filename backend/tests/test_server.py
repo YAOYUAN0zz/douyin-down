@@ -53,7 +53,7 @@ async def test_job_manager_marks_failure_on_executor_error(tmp_path):
 
 def test_health_endpoint(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
 
     with TestClient(app) as client:
@@ -64,7 +64,7 @@ def test_health_endpoint(tmp_path):
 
 def test_download_endpoint_creates_job(tmp_path, monkeypatch):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
 
     # 替换 job executor 为 fake（不去触达 Douyin）
@@ -98,7 +98,7 @@ def test_download_endpoint_creates_job(tmp_path, monkeypatch):
 
 def test_download_endpoint_rejects_empty_url(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
     with TestClient(app) as client:
         resp = client.post("/api/v1/download", json={"url": ""})
@@ -110,7 +110,7 @@ def test_download_endpoint_rejects_empty_url(tmp_path):
 
 def test_get_unknown_job_returns_404(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
     with TestClient(app) as client:
         resp = client.get("/api/v1/jobs/unknown-id")
@@ -121,7 +121,7 @@ def test_get_unknown_job_returns_404(tmp_path):
 def test_build_app_shares_deps_across_requests(tmp_path):
     """重请求应复用同一个 FileManager / RateLimiter 等（避免每次重建）。"""
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
 
     deps = app.state.deps

@@ -735,9 +735,9 @@ class Database:
     async def load_terminal_jobs(self, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """Load persisted terminal jobs ordered by created_at DESC.
 
-        Only rows whose ``status`` is a terminal value (success / failed /
-        cancelled) are returned. Running/pending rows shouldn't exist on
-        disk — see server/jobs.py — but we filter defensively in case an
+        Only rows whose ``status`` is a terminal value (success / partial /
+        failed / cancelled) are returned. Running/pending rows shouldn't exist
+        on disk — see server/jobs.py — but we filter defensively in case an
         older build left stale rows.
         """
         db = await self._get_conn()
@@ -749,7 +749,7 @@ class Database:
             "total, success, failed, skipped, error, author_nickname, "
             "author_sec_uid, retry_count, last_retry_at, last_retry_summary, "
             "retry_history, overrides FROM job "
-            "WHERE status IN ('success', 'failed', 'cancelled') "
+            "WHERE status IN ('success', 'partial', 'failed', 'cancelled') "
             "ORDER BY created_at DESC"
         )
         if limit is not None and limit > 0:

@@ -71,6 +71,7 @@ async def execute_download(
     *,
     progress_reporter: Optional[Any] = None,
     job_id: Optional[str] = None,
+    database: Optional[Any] = None,
 ) -> Dict[str, int]:
     """简化版 download_url：只负责执行并返回成功/失败计数。
 
@@ -105,7 +106,7 @@ async def execute_download(
             api_client,
             deps.file_manager,
             deps.cookie_manager,
-            None,  # database 不在 server 场景里启用，避免单例冲突
+            database,  # 与 CLI 对齐：开启时启用去重/历史
             deps.rate_limiter,
             deps.retry_handler,
             deps.queue_manager,

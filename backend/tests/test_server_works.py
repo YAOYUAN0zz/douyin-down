@@ -20,7 +20,7 @@ from server.works import WorksListError, list_works, normalize_aweme
 
 def _make_app(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
 
     async def fake_executor(job) -> Dict[str, int]:

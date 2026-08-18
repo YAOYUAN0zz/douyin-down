@@ -79,7 +79,7 @@ async def test_executor_receives_job_and_can_report():
 
 def test_jobs_endpoint_exposes_progress(tmp_path):
     config = ConfigLoader(None)
-    config.update(path=str(tmp_path))
+    config.update(path=str(tmp_path), database=False)
     app = build_app(config)
 
     async def fake_executor(job) -> Dict[str, int]:

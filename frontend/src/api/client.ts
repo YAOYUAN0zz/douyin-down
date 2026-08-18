@@ -60,3 +60,10 @@ export function apiPost<T>(path: string, payload?: unknown): Promise<T> {
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
 }
+
+export function apiRequest<T>(path: string, method: string, payload?: unknown): Promise<T> {
+  return request<T>(path, {
+    method,
+    body: payload === undefined ? undefined : JSON.stringify(payload),
+  });
+}
