@@ -82,6 +82,14 @@ function tierParam(label: string): string {
 
       <div v-if="item.qualities.length" class="tiers">
         <button
+          type="button"
+          class="tier tier-original"
+          title="最高码率 + 原画探测"
+          @click.stop="$emit('download', 'original')"
+        >
+          原画 <span class="tier-dl">⬇</span>
+        </button>
+        <button
           v-for="q in item.qualities"
           :key="q.gear_name"
           type="button"
@@ -89,21 +97,9 @@ function tierParam(label: string): string {
           :title="`${q.width}×${q.height} · 直接按 ${q.label} 下载`"
           @click.stop="$emit('download', tierParam(q.label))"
         >
-          <span class="tier-label">{{ q.label }}</span>
-          <span class="tier-res">{{ q.width }}×{{ q.height }}</span>
-          <span class="tier-size">{{ formatBytes(q.size_bytes) }}</span>
-          <span class="tier-action">⬇ 下载</span>
-        </button>
-        <button
-          type="button"
-          class="tier tier-original"
-          title="最高码率 + 原画探测"
-          @click.stop="$emit('download', 'original')"
-        >
-          <span class="tier-label">原画</span>
-          <span class="tier-res">最高画质探测</span>
-          <span class="tier-size"></span>
-          <span class="tier-action">⬇ 下载</span>
+          <b>{{ q.label }}</b>
+          <span v-if="q.size_bytes" class="tier-size">{{ formatBytes(q.size_bytes) }}</span>
+          <span class="tier-dl">⬇</span>
         </button>
       </div>
       <div v-else class="tiers tiers-single">
@@ -215,53 +211,48 @@ function tierParam(label: string): string {
 .tiers {
   margin-top: auto;
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .tiers-single {
   align-items: flex-start;
 }
 .tier {
-  display: grid;
-  grid-template-columns: 48px 1fr auto 64px;
+  display: inline-flex;
   align-items: center;
-  gap: var(--dd-space-2);
+  gap: 5px;
   border: 1px solid var(--dd-border);
-  border-radius: 8px;
+  border-radius: 999px;
   background: transparent;
-  color: var(--dd-text-secondary);
+  color: var(--dd-text);
   font-size: 12px;
-  padding: 4px 8px;
+  line-height: 1;
+  padding: 5px 10px;
   cursor: pointer;
-  text-align: left;
   transition:
     border-color 0.12s,
     background 0.12s;
+}
+.tier b {
+  font-weight: 600;
 }
 .tier:hover {
   border-color: #2080f0;
   background: rgba(32, 128, 240, 0.08);
 }
-.tier:hover .tier-action {
+.tier:hover .tier-dl {
   color: #2080f0;
-  font-weight: 600;
-}
-.tier-label {
-  font-weight: 600;
-  color: var(--dd-text);
-}
-.tier-res {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 700;
 }
 .tier-size {
-  text-align: right;
+  color: var(--dd-text-secondary);
 }
-.tier-action {
-  text-align: right;
+.tier-dl {
+  color: var(--dd-text-secondary);
 }
-.tier-original .tier-label {
+.tier-original {
+  border-color: rgba(32, 128, 240, 0.5);
   color: #2080f0;
+  font-weight: 600;
 }
 </style>
