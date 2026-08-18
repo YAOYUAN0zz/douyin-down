@@ -5,6 +5,7 @@
 >
 > **v2 修订（用户已拍板）**：① 项目转为前后端 monorepo 结构，新增 §6 目标文件夹架构；② 全部端点（存量 + 新增）统一到同一套响应模型与错误码规范（§5）。
 > **v3 修订**：本项目为从 GitHub clone 的第三方项目二次开发，**不存在**需要同步的桌面端仓库，已移除全部「与桌面端对齐」相关内容（项目 CLAUDE.md / AGENTS.md 中的对应记录亦已清除）。
+> **v4 修订（实施记录）**：M0 与 M1 已落地。落地时对 §6 的一处调整：Python 包**平铺在 `backend/` 下且包名不变**（`backend/core/` 而非 `backend/douyin_downloader/core/`），避免全仓 import 与测试 mock-patch 字符串的大规模重写；其余按方案执行。API 规格见 `dev_docs/api.md`。
 
 ---
 

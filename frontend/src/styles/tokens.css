@@ -1,0 +1,40 @@
+/* 设计令牌：全局仅此一处定义颜色/间距/圆角，组件禁魔法值。
+ * 浅色为基线；暗色由 naive-ui darkTheme + 下方媒体查询覆盖。 */
+:root {
+  --dd-page-bg: #f5f6f8;
+  --dd-card-bg: #ffffff;
+  --dd-text: #1f2329;
+  --dd-text-secondary: #6b7280;
+  --dd-border: #e5e7eb;
+  --dd-radius: 8px;
+  --dd-space-1: 4px;
+  --dd-space-2: 8px;
+  --dd-space-3: 12px;
+  --dd-space-4: 16px;
+  --dd-space-6: 24px;
+}
+
+html[data-theme="dark"] {
+  --dd-page-bg: #101014;
+  --dd-card-bg: #18181c;
+  --dd-text: #e5e7eb;
+  --dd-text-secondary: #9ca3af;
+  --dd-border: #2d2d33;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--dd-page-bg);
+  color: var(--dd-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    sans-serif;
+}
