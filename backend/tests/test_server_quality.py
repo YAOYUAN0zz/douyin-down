@@ -10,7 +10,8 @@ except ImportError:  # pragma: no cover
     pytest.skip("fastapi not installed", allow_module_level=True)
 
 from config import ConfigLoader
-from server.app import _OverrideConfig, build_app
+from server.app import build_app
+from server.deps import OverrideConfig
 from server.works import extract_qualities, normalize_aweme
 
 
@@ -94,7 +95,7 @@ def test_normalize_aweme_images_have_no_qualities():
 def test_override_config_shadows_only_given_keys(tmp_path):
     base = ConfigLoader(None)
     base.update(path=str(tmp_path), video_quality="highest", thread=7)
-    view = _OverrideConfig(base, {"video_quality": "720p"})
+    view = OverrideConfig(base, {"video_quality": "720p"})
 
     assert view.get("video_quality") == "720p"
     assert view.get("thread") == 7
@@ -113,8 +114,8 @@ def test_download_accepts_and_records_video_quality(tmp_path):
             json={"url": "https://www.douyin.com/video/1", "video_quality": "720p"},
         )
         assert resp.status_code == 200
-        job_id = resp.json()["job_id"]
-        detail = client.get(f"/api/v1/jobs/{job_id}").json()
+        job_id = resp.json()["data"]["job_id"]
+        detail = client.get(f"/api/v1/jobs/{job_id}").json()["data"]
         assert detail["options"] == {"video_quality": "720p"}
 
 
@@ -122,8 +123,8 @@ def test_download_without_quality_keeps_options_none(tmp_path):
     app = _make_app(tmp_path)
     with TestClient(app) as client:
         resp = client.post("/api/v1/download", json={"url": "https://www.douyin.com/video/1"})
-        job_id = resp.json()["job_id"]
-        assert client.get(f"/api/v1/jobs/{job_id}").json()["options"] is None
+        job_id = resp.json()["data"]["job_id"]
+        assert client.get(f"/api/v1/jobs/{job_id}").json()["data"]["options"] is None
 
 
 def test_download_rejects_unknown_quality(tmp_path):
@@ -134,7 +135,9 @@ def test_download_rejects_unknown_quality(tmp_path):
             json={"url": "https://www.douyin.com/video/1", "video_quality": "4k"},
         )
         assert resp.status_code == 400
-        assert "画质" in resp.json()["detail"]
+        body = resp.json()
+        assert body["code"] == 40001
+        assert "画质" in body["message"]
 
 
 def test_batch_download_applies_quality_to_all_jobs(tmp_path):
@@ -148,6 +151,6 @@ def test_batch_download_applies_quality_to_all_jobs(tmp_path):
             },
         )
         assert resp.status_code == 200
-        listed = {j["job_id"]: j for j in client.get("/api/v1/jobs").json()["jobs"]}
-        for job in resp.json()["jobs"]:
+        listed = {j["job_id"]: j for j in client.get("/api/v1/jobs").json()["data"]["jobs"]}
+        for job in resp.json()["data"]["jobs"]:
             assert listed[job["job_id"]]["options"] == {"video_quality": "original"}

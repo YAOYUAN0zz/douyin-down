@@ -91,7 +91,7 @@ def test_jobs_endpoint_exposes_progress(tmp_path):
     with TestClient(app) as client:
         job_id = client.post(
             "/api/v1/download", json={"url": "https://www.douyin.com/video/1"}
-        ).json()["job_id"]
-        detail = client.get(f"/api/v1/jobs/{job_id}").json()
+        ).json()["data"]["job_id"]
+        detail = client.get(f"/api/v1/jobs/{job_id}").json()["data"]
         assert "progress" in detail
         assert set(detail["progress"]) >= {"step", "items_total", "items_done", "current"}

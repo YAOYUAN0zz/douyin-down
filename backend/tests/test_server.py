@@ -59,7 +59,7 @@ def test_health_endpoint(tmp_path):
     with TestClient(app) as client:
         resp = client.get("/api/v1/health")
         assert resp.status_code == 200
-        assert resp.json() == {"status": "ok"}
+        assert resp.json() == {"code": 0, "message": "ok", "data": {"status": "ok"}}
 
 
 def test_download_endpoint_creates_job(tmp_path, monkeypatch):
@@ -76,7 +76,9 @@ def test_download_endpoint_creates_job(tmp_path, monkeypatch):
     with TestClient(app) as client:
         resp = client.post("/api/v1/download", json={"url": "https://www.douyin.com/video/123"})
         assert resp.status_code == 200
-        data = resp.json()
+        body = resp.json()
+        assert body["code"] == 0
+        data = body["data"]
         assert data["status"] in ("pending", "running", "success")
         assert data["url"] == "https://www.douyin.com/video/123"
         assert len(data["job_id"]) > 0
@@ -85,13 +87,13 @@ def test_download_endpoint_creates_job(tmp_path, monkeypatch):
         # job 列表应包含该 id
         list_resp = client.get("/api/v1/jobs")
         assert list_resp.status_code == 200
-        ids = [j["job_id"] for j in list_resp.json()["jobs"]]
+        ids = [j["job_id"] for j in list_resp.json()["data"]["jobs"]]
         assert job_id in ids
 
         # 详情接口
         detail = client.get(f"/api/v1/jobs/{job_id}")
         assert detail.status_code == 200
-        assert detail.json()["job_id"] == job_id
+        assert detail.json()["data"]["job_id"] == job_id
 
 
 def test_download_endpoint_rejects_empty_url(tmp_path):
@@ -101,6 +103,9 @@ def test_download_endpoint_rejects_empty_url(tmp_path):
     with TestClient(app) as client:
         resp = client.post("/api/v1/download", json={"url": ""})
         assert resp.status_code == 400
+        body = resp.json()
+        assert body["code"] == 40000
+        assert body["data"] is None
 
 
 def test_get_unknown_job_returns_404(tmp_path):
@@ -110,6 +115,7 @@ def test_get_unknown_job_returns_404(tmp_path):
     with TestClient(app) as client:
         resp = client.get("/api/v1/jobs/unknown-id")
         assert resp.status_code == 404
+        assert resp.json()["code"] == 40400
 
 
 def test_build_app_shares_deps_across_requests(tmp_path):

@@ -25,12 +25,12 @@ def _make_app(tmp_path):
 
 
 def test_webui_index_served(tmp_path):
+    """根路径始终返回 HTML：有 frontend/dist 时服务构建产物，否则返回占位页。"""
     app = _make_app(tmp_path)
     with TestClient(app) as client:
         resp = client.get("/")
         assert resp.status_code == 200
         assert "text/html" in resp.headers["content-type"]
-        assert "自动获取参数" in resp.text
 
 
 def test_auth_status_reports_missing_keys(tmp_path):
@@ -40,7 +40,7 @@ def test_auth_status_reports_missing_keys(tmp_path):
     with TestClient(app) as client:
         resp = client.get("/api/v1/auth/status")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["ready"] is False
         assert "odin_tt" in data["missing"]
         assert "passport_csrf_token" in data["missing"]
@@ -60,7 +60,7 @@ def test_auth_status_ready_when_all_required_present(tmp_path):
     }
 
     with TestClient(app) as client:
-        data = client.get("/api/v1/auth/status").json()
+        data = client.get("/api/v1/auth/status").json()["data"]
         assert data["ready"] is True
         assert data["missing"] == []
         assert data["has_session"] is True
@@ -104,9 +104,11 @@ def test_config_cookies_seed_first_run(tmp_path):
 def test_auth_fetch_confirm_without_session_returns_409(tmp_path):
     app = _make_app(tmp_path)
     with TestClient(app) as client:
-        assert client.post("/api/v1/auth/fetch/confirm").status_code == 409
+        resp = client.post("/api/v1/auth/fetch/confirm")
+        assert resp.status_code == 409
+        assert resp.json()["code"] == 40900
         assert client.post("/api/v1/auth/fetch/cancel").status_code == 409
-        status = client.get("/api/v1/auth/fetch/status").json()
+        status = client.get("/api/v1/auth/fetch/status").json()["data"]
         assert status["status"] == "idle"
 
 
@@ -127,7 +129,7 @@ def test_auth_fetch_start_rejects_concurrent_sessions(tmp_path, monkeypatch):
         assert client.post("/api/v1/auth/fetch").status_code == 200
         # 第二次启动应被拒绝
         assert client.post("/api/v1/auth/fetch").status_code == 409
-        assert client.get("/api/v1/auth/fetch/status").json()["status"] == "running"
+        assert client.get("/api/v1/auth/fetch/status").json()["data"]["status"] == "running"
 
 
 @pytest.mark.asyncio

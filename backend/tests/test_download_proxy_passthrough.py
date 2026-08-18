@@ -52,28 +52,28 @@ class _FakeDownloader:
 
 
 def _run_execute_download(monkeypatch, tmp_path, config_updates: Dict[str, Any]):
-    from server import app as server_app
-    from server.app import _execute_download, _ServerDeps
+    from server import deps as server_deps
+    from server.deps import ServerDeps, execute_download
 
-    deps = _ServerDeps(ConfigLoader(None))
+    deps = ServerDeps(ConfigLoader(None))
     deps.config.update(path=str(tmp_path), **config_updates)
 
     _RecordingAPIClient.reset()
-    monkeypatch.setattr(server_app, "DouyinAPIClient", _RecordingAPIClient)
-    monkeypatch.setattr(server_app, "is_short_url", lambda _u: False)
+    monkeypatch.setattr(server_deps, "DouyinAPIClient", _RecordingAPIClient)
+    monkeypatch.setattr(server_deps, "is_short_url", lambda _u: False)
     monkeypatch.setattr(
-        server_app.URLParser,
+        server_deps.URLParser,
         "parse",
         staticmethod(lambda _u: {"type": "video", "aweme_id": "1"}),
     )
     monkeypatch.setattr(
-        server_app.DownloaderFactory,
+        server_deps.DownloaderFactory,
         "create",
         staticmethod(lambda *_a, **_kw: _FakeDownloader()),
     )
 
     asyncio.run(
-        _execute_download("https://www.douyin.com/video/7000000000000000001", deps)
+        execute_download("https://www.douyin.com/video/7000000000000000001", deps)
     )
     return _RecordingAPIClient.seen_proxies
 

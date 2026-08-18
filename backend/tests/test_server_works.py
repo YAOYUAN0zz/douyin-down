@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover
     pytest.skip("fastapi not installed", allow_module_level=True)
 
 from config import ConfigLoader
-from server import app as server_app
+from server.api import works as works_api
 from server.app import build_app
 from server.works import WorksListError, list_works, normalize_aweme
 
@@ -156,7 +156,7 @@ def test_works_list_endpoint_returns_page(tmp_path, monkeypatch):
             "cursor": 1723900000,
         }
 
-    monkeypatch.setattr(server_app, "list_works", fake_list_works)
+    monkeypatch.setattr(works_api, "list_works", fake_list_works)
 
     with TestClient(app) as client:
         resp = client.post(
@@ -164,7 +164,7 @@ def test_works_list_endpoint_returns_page(tmp_path, monkeypatch):
             json={"url": "https://www.douyin.com/user/MS4wLjABAAAA_x"},
         )
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["data"]
         assert data["source_type"] == "user"
         assert data["has_more"] is True
         assert data["cursor"] == 1723900000
@@ -177,12 +177,14 @@ def test_works_list_endpoint_maps_error_status(tmp_path, monkeypatch):
     async def failing_list_works(url, **kwargs):
         raise WorksListError("上游接口返回异常", 502)
 
-    monkeypatch.setattr(server_app, "list_works", failing_list_works)
+    monkeypatch.setattr(works_api, "list_works", failing_list_works)
 
     with TestClient(app) as client:
         resp = client.post("/api/v1/works/list", json={"url": "https://www.douyin.com/user/x"})
         assert resp.status_code == 502
-        assert "上游" in resp.json()["detail"]
+        body = resp.json()
+        assert body["code"] == 50200
+        assert "上游" in body["message"]
 
 
 def test_works_list_endpoint_rejects_empty_url(tmp_path):
@@ -199,14 +201,14 @@ def test_batch_download_creates_jobs(tmp_path):
             json={"urls": ["https://www.douyin.com/video/1", "https://www.douyin.com/note/2", " "]},
         )
         assert resp.status_code == 200
-        jobs = resp.json()["jobs"]
+        jobs = resp.json()["data"]["jobs"]
         assert len(jobs) == 2
         assert {j["url"] for j in jobs} == {
             "https://www.douyin.com/video/1",
             "https://www.douyin.com/note/2",
         }
         # 任务应进入 job 列表
-        listed = client.get("/api/v1/jobs").json()["jobs"]
+        listed = client.get("/api/v1/jobs").json()["data"]["jobs"]
         assert {j["job_id"] for j in jobs} <= {j["job_id"] for j in listed}
 
 
