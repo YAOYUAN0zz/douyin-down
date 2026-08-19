@@ -53,6 +53,11 @@ const flowText = computed(() => {
         {{ auth.error }}
       </n-alert>
 
+      <!-- 环境缺失的提示要可选中复制：里面是用户要照着执行的命令 -->
+      <n-alert v-if="!auth.browserReady" type="warning" title="浏览器环境未就绪">
+        <pre class="hint">{{ auth.browserHint }}</pre>
+      </n-alert>
+
       <n-alert
         v-if="flowText"
         :type="
@@ -73,7 +78,7 @@ const flowText = computed(() => {
         <n-button
           v-if="!auth.flowRunning"
           type="primary"
-          :disabled="auth.flowRunning"
+          :disabled="auth.flowRunning || !auth.browserReady"
           @click="auth.startFetch()"
         >
           自动获取参数
@@ -87,3 +92,14 @@ const flowText = computed(() => {
     </n-space>
   </n-modal>
 </template>
+
+<style scoped>
+.hint {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: var(--font-family-mono, monospace);
+  font-size: 12px;
+  user-select: text;
+}
+</style>

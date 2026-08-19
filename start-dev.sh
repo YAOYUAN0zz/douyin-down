@@ -37,8 +37,9 @@ set +a
 # ---- 依赖自动补齐 ----
 # uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
 # --inexact：只补不删，避免把用户额外装的 playwright 当「多余包」卸掉。
-# UV_EXTRAS 在 .env.dev 里配置，默认 server（Web UI 所需的 fastapi+uvicorn）。
-UV_EXTRAS="${UV_EXTRAS:-server}"
+# UV_EXTRAS 在 .env.dev 里配置。缺省值含 browser：老的 .env.dev（早于该键引入）
+# 读不到它，若回退成只装 server，用户就会在「获取参数」时撞上缺 Playwright。
+UV_EXTRAS="${UV_EXTRAS:-server,browser}"
 EXTRA_ARGS=""
 for extra in $(echo "$UV_EXTRAS" | tr ',' ' '); do
     EXTRA_ARGS="$EXTRA_ARGS --extra $extra"

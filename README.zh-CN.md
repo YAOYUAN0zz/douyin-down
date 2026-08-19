@@ -62,7 +62,7 @@
 
 **通常不用手动装**：`start-dev.sh` / `start-dev.ps1` / `start-prod.sh` 每次启动都会自动补齐前后端依赖（幂等，装齐时秒回）。依赖默认走国内镜像（Python→清华 TUNA，Node→npmmirror），首次安装不会卡在超时上。
 
-需要浏览器兜底或自动获取 Cookie 时，在 `.env.dev` 里把 `UV_EXTRAS` 改成 `server,browser`，启动脚本会连 Chromium 内核一起装好。
+`UV_EXTRAS` 默认就是 `server,browser`，启动脚本会连 Chromium 内核一起装好（首次约 150MB）：没有它就无法自动获取 Cookie，而缺下载参数时下载会在提交时被直接拒绝。
 
 只在纯 CLI、不走启动脚本时才需要手动装：
 
@@ -320,13 +320,13 @@ uv run --project backend douyin-dl --serve --serve-port 8000
 | Method | Path | 说明 |
 |--------|------|------|
 | GET | `/` | Web UI（可视化界面） |
-| POST | `/api/v1/download` | 提交 `{"url", "video_quality"?}`，返回 `{job_id, status}` |
-| POST | `/api/v1/download/batch` | 批量提交 `{"urls", "video_quality"?}`（单次上限 100） |
+| POST | `/api/v1/download` | 提交 `{"url", "video_quality"?}`，返回 `{job_id, status}`；缺下载参数 → 401/40100 且不建任务 |
+| POST | `/api/v1/download/batch` | 批量提交 `{"urls", "video_quality"?}`（单次上限 100）；同样前置校验，缺参数整批拒收 |
 | POST | `/api/v1/works/list` | 预览作品列表 `{"url", "cursor", "count"}`，条目含全部画质档 |
 | GET | `/api/v1/jobs/{job_id}` | 查询指定 job 的状态/计数/实时进度（`progress` 字段） |
 | GET | `/api/v1/jobs` | 列出最近的 job（按 TTL + 容量剪裁） |
 | GET | `/api/v1/auth/status` | 下载参数（cookie/msToken）就绪状态与缺失项 |
-| POST | `/api/v1/auth/fetch` | 启动浏览器登录并自动抓取下载参数（需 playwright） |
+| POST | `/api/v1/auth/fetch` | 启动浏览器登录并自动抓取下载参数；缺 playwright/浏览器内核 → 503/50301（报错自带修复命令） |
 | GET | `/api/v1/auth/fetch/status` | 查询抓取会话进度 |
 | POST | `/api/v1/auth/fetch/confirm` | 手动声明「已完成登录」，立即抓取 |
 | POST | `/api/v1/auth/fetch/cancel` | 取消当前抓取会话 |
@@ -359,7 +359,7 @@ uv run --project backend douyin-dl --serve --serve-port 8000
 `config.yml` 内嵌的 `cookies:` 仅在首次运行（尚无 `.cookies.json`）时作为种子导入，
 之后以 `.cookies.json` 为准，不会被 config 里的旧值覆盖。
 
-自动获取依赖 Playwright。推荐在 `.env.dev` 里设 `UV_EXTRAS=server,browser`，启动脚本会自动装好；手动等价命令：
+自动获取依赖 Playwright，默认已随 `UV_EXTRAS=server,browser` 装好。若缺失，「自动获取参数」按钮会置灰并显示要执行的命令，不会进入一个瞬间失败的会话；手动等价命令：
 
 ```bash
 uv sync --project backend --extra browser --inexact

@@ -12,6 +12,8 @@ try:
 except ImportError:  # pragma: no cover
     pytest.skip("fastapi not installed", allow_module_level=True)
 
+from conftest import mark_credentials_ready
+
 from config import ConfigLoader
 from server.api import works as works_api
 from server.app import build_app
@@ -27,6 +29,7 @@ def _make_app(tmp_path):
         return {"total": 1, "success": 1, "failed": 0, "skipped": 0}
 
     app.state.job_manager.executor = fake_executor
+    mark_credentials_ready(app)
     return app
 
 

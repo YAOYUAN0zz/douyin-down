@@ -29,6 +29,7 @@
 | 50000 | 500 | 未分类服务端错误 |
 | 50200 | 502 | 抖音上游接口异常（上游其他状态 N 映射为 N×100） |
 | 50300 | 503 | 数据库未启用（`config.database=false`），历史类端点不可用 |
+| 50301 | 503 | 缺 Playwright 包或浏览器内核，无法自动获取下载参数（`message` 自带修复命令） |
 
 ## 端点清单（前缀 `/api/v1`）
 
@@ -46,6 +47,8 @@
 | POST | `/download/batch` | `{urls[], video_quality?}`（≤100） | `{jobs: [{job_id, status, url}]}` |
 
 `video_quality` 白名单：`original / highest / lowest / 1440p / 1080p / 720p / 540p / 480p / 360p`，空表示跟随全局配置。
+
+**凭据前置校验**（`backend/server/preflight.py`）：两个端点在建任务前先查必需 cookie（`msToken / ttwid / odin_tt / passport_csrf_token`，空白值视同缺失），缺任一项 → 401/40100，`message` 指名缺哪些键，**不产生任何 job**。批量场景整批拒收。校验顺序为「参数错误（400）优先于凭据（401）」，避免用户先去补登录、回来才发现参数还错。
 
 ### 作品列表
 
@@ -83,11 +86,15 @@
 
 | Method | Path | 说明 |
 |---|---|---|
-| GET | `/auth/status` | `{cookie_count, required[], missing[], ready, has_session}` |
-| POST | `/auth/fetch` | 启动服务器端浏览器登录抓取；已有会话 → 409/40900 |
+| GET | `/auth/status` | `{cookie_count, required[], missing[], ready, has_session, browser_ready, browser_hint}` |
+| POST | `/auth/fetch` | 启动服务器端浏览器登录抓取；环境未就绪 → 503/50301，已有会话 → 409/40900 |
 | GET | `/auth/fetch/status` | `{status: idle\|running\|success\|failed\|cancelled, message, missing[], captured_count, started_at, finished_at}` |
 | POST | `/auth/fetch/confirm` | 声明已完成登录，立即抓取；无会话 → 409 |
 | POST | `/auth/fetch/cancel` | 取消会话；无会话 → 409 |
+
+**浏览器环境前置校验**：`/auth/fetch` 在启动会话前完整检查 Playwright 包与浏览器内核，不满足直接 503/50301 且**不进入 `running` 状态**——否则前端只看到一个瞬间失败的会话，真实原因要翻快照。`/auth/status` 会被前端周期性刷新，故只做零开销的包检查（`browser_ready` / `browser_hint`），内核缺失由 `/auth/fetch` 兜住；前端据 `browser_ready` 提前禁用「自动获取参数」按钮并展示可复制的修复命令。
+
+依赖由启动脚本自动补齐：`.env.dev` 的 `UV_EXTRAS` 默认 `server,browser`，`start-dev.sh` / `start-dev.ps1` 每次启动都会 `uv sync` 并 `playwright install chromium`（均幂等）。
 
 ### 设置（settings）
 

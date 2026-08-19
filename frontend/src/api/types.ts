@@ -144,6 +144,10 @@ export interface AuthStatus {
   missing: string[];
   ready: boolean;
   has_session: boolean;
+  /** 浏览器自动获取所需的 Playwright 包是否就绪（内核缺失由 /auth/fetch 兜住）。 */
+  browser_ready: boolean;
+  /** 未就绪时的修复提示（含可直接执行的命令），就绪时为 null。 */
+  browser_hint: string | null;
 }
 
 export type AuthFlowState = "idle" | "running" | "success" | "failed" | "cancelled";

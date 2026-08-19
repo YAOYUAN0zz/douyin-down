@@ -10,6 +10,8 @@ try:
 except ImportError:  # pragma: no cover
     pytest.skip("fastapi not installed", allow_module_level=True)
 
+from conftest import mark_credentials_ready
+
 from config import ConfigLoader
 from server.app import build_app
 from server.jobs import DownloadJob, JobManager, JobProgressReporter
@@ -87,6 +89,7 @@ def test_jobs_endpoint_exposes_progress(tmp_path):
         return {"total": 3, "success": 3, "failed": 0, "skipped": 0}
 
     app.state.job_manager.executor = fake_executor
+    mark_credentials_ready(app)
 
     with TestClient(app) as client:
         job_id = client.post(

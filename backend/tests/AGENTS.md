@@ -40,7 +40,10 @@ Pytest test suite with 23 test modules covering all major components. Uses `pyte
 - Run single: `python -m pytest tests/test_<module>.py -v`
 - Async mode is `auto` — no need for `@pytest.mark.asyncio` decorators
 - Tests use mocking extensively (`unittest.mock`, `AsyncMock`)
-- No fixtures file (`conftest.py`) — fixtures are defined per-module
+- `conftest.py` holds only cross-module helpers (`READY_COOKIES`, `mark_credentials_ready`);
+  everything else stays per-module. Any test that expects `POST /download*` to succeed must
+  call `mark_credentials_ready(app)` — download endpoints reject missing credentials up front
+  (see `server/preflight.py`)
 
 ### Testing Requirements
 - All new code must have corresponding tests
