@@ -2,7 +2,8 @@
 FROM node:22-slim AS webui
 WORKDIR /app/frontend
 RUN corepack enable
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+# .npmrc 一并拷入，否则镜像构建不会走国内源（宿主机的配置进不了容器）
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/.npmrc ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build

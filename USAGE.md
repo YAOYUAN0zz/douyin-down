@@ -20,27 +20,35 @@
 1. **一切命令在仓库根目录执行**，不要 `cd backend` 后再跑下载命令。
    `config.yml`、`Downloaded/`、`dy_downloader.db`、`.cookies.json` 全是**相对 CWD** 解析的；换了 CWD 会读不到配置、把文件下载到别处。
    统一用 `uv run --project backend <命令>` —— `--project` 指定依赖环境，CWD 保持在根目录。
-2. **Python 依赖只用 uv，前端只用 pnpm**。不要 `pip install`、不要 `npm install`。
+2. **Python 依赖只用 uv，前端只用 pnpm**。不要 `pip install`、不要 `npm install`。启动脚本会自动补齐依赖，通常你什么都不用装。`uv sync` 记得带 `--inexact`，否则会卸掉环境里的其他 extras。
 3. **不要提交也不要外发这些文件**：`config.yml`、`.cookies.json`、`dy_downloader.db*`、`Downloaded/`、`.env.dev` —— 含用户的抖音登录凭据和下载数据。`.gitignore` 已排除，但**打包/复制目录时会连带带走**，务必先确认。
 4. **Cookie 会失效**。抖音接口对未登录/失效态返回的错误五花八门；报错先怀疑 Cookie，见 §7。
 5. **接口会变**。这是逆向抖音私有接口的项目，某天突然全部失败是常态，不一定是本地环境问题。
 
-## 3. 首次配置（4 步）
+## 3. 首次配置
+
+**依赖不用手动装**：`start-dev.sh` / `start-dev.ps1` / `start-prod.sh` 每次启动都会自动补齐后端与前端依赖（`uv sync --inexact` + `pnpm install`，都是幂等的，装齐时秒回）。直接跑启动脚本即可。
 
 ```bash
-# 1) 安装后端依赖（server extra = Web UI/REST 所需的 fastapi+uvicorn）
-uv sync --project backend --extra server
-
-# 2) 生成配置
+# 1) 生成配置
 cp config.example.yml config.yml        # Windows: Copy-Item config.example.yml config.yml
 
-# 3) 获取 Cookie（推荐：打开浏览器，手动登录后自动写入）
+# 2) 获取 Cookie（推荐：打开浏览器，手动登录后自动写入）
 uv run --project backend python -m tools.cookie_fetcher --config config.yml
 
-# 4) 编辑 config.yml，至少改 link / mode / number 三项
+# 3) 编辑 config.yml，至少改 link / mode / number 三项（Web UI 用户可跳过，见 §4.1）
 ```
 
-**可选 extra**（按需追加，不要默认全装）：
+只在纯 CLI、不走启动脚本时才需要手动装：
+
+```bash
+uv sync --project backend --extra server --inexact
+```
+
+> `--inexact` 很重要：不加会把环境里「不属于本次 extras」的包当多余包**卸掉**，
+> 比如你装过的 playwright / whisper 会被静默清掉。
+
+**可选 extra**：改 `.env.dev` 里的 `UV_EXTRAS`（逗号分隔），启动脚本会照着装。默认 `server`。
 
 | extra | 装什么 | 何时需要 |
 |---|---|---|
@@ -49,12 +57,30 @@ uv run --project backend python -m tools.cookie_fetcher --config config.yml
 | `transcribe` | openai-whisper | 视频转写 |
 | `dev` | pytest + ruff + hypothesis | 改代码 / 跑测试 |
 
-装 `browser` 后还需下载浏览器内核：
+装 `browser` 后还需下载浏览器内核。在 `.env.dev` 里写 `UV_EXTRAS=server,browser` 后，启动脚本会连内核一起装好；手动等价命令：
 
 ```bash
-uv sync --project backend --extra server --extra browser
+uv sync --project backend --extra server --extra browser --inexact
 uv run --project backend python -m playwright install chromium
 ```
+
+### 镜像源
+
+**默认全部走国内源**，无需额外配置：
+
+| 生态 | 源 | 配置位置 |
+|---|---|---|
+| Python | 清华 TUNA | `backend/pyproject.toml` 的 `[[tool.uv.index]]` |
+| Node | npmmirror（淘宝） | `frontend/.npmrc` |
+
+需要走官方源时用环境变量覆盖，别改文件：
+
+```bash
+UV_DEFAULT_INDEX=https://pypi.org/simple      # Python
+npm_config_registry=https://registry.npmjs.org # Node
+```
+
+注意 `uv.lock` 记录了各包来源，换 Python index 会让 uv 认为 lock 过期并重新解析（一次几分钟），属预期行为不是报错。`pnpm-lock.yaml` 不记录 registry 主机名，换 Node 源不影响它。
 
 Cookie 持久化在 `.cookies.json`（与 `config.yml` 同级）。`config.yml` 里的 `cookies:` 段**只在首次、尚无 `.cookies.json` 时**作为种子导入，之后以 `.cookies.json` 为准 —— 所以改 `config.yml` 里的 cookie 通常不生效，要改就改 `.cookies.json` 或重新跑 cookie_fetcher。
 
@@ -102,6 +128,14 @@ uv run --project backend douyin-dl -c config.yml \
 | `--hot-board [N]` | 导出热搜榜快照 |
 | `--search <kw>` / `--search-max <N>` | 关键词搜索 |
 | `-v, --verbose` / `--show-warnings` | 放开日志级别（**排查问题时先加这个**） |
+
+## 4.1 改配置：优先用设置页，别手改 config.yml
+
+Web UI 的**设置**页覆盖了绝大多数配置项（下载目录、画质、并发、保存内容、命名模板、代理、评论采集、直播录制、转写、通知），改完点保存即写回 `config.yml`，用户不需要碰配置文件。
+
+- 只有**并发数（thread）**改动后需要重启服务，页面会明确提示；其余保存即生效。
+- 设置页**不管** Cookie（走「自动获取参数」）和下载链接/模式（Web UI 按 URL 提交任务，不读 `config.link`）。要用 `link`/`mode`/`number` 那套批量配置，仍走 CLI + `config.yml`。
+- 用户手写在 `config.yml` 里、设置页没覆盖的键不会被保存动作抹掉。
 
 ## 5. 常用任务配方
 
@@ -158,10 +192,15 @@ uv run --project backend douyin-dl -c config.yml \
 ## 9. 改代码时
 
 ```bash
-uv run --project backend pytest          # 后端测试
-uv run --project backend ruff check .    # 后端 lint（line-length 100）
+cd backend && uv run pytest              # 后端测试
+cd backend && uv run ruff check .        # 后端 lint（line-length 100）
 cd frontend && pnpm check                # 前端：prettier + eslint + vue-tsc
 ```
+
+> ⚠️ 后端测试**必须在 `backend/` 目录下跑**。`[tool.pytest.ini_options]`（含
+> `asyncio_mode = "auto"`）在 `backend/pyproject.toml` 里，从仓库根跑会让 rootdir
+> 错位、所有异步测试以「async def functions are not natively supported」批量失败——
+> 那是跑错目录，不是代码坏了。
 
 约束：Python 保持 3.9 兼容；核心路径全异步（`aiohttp`/`aiofiles`/`aiosqlite`），禁阻塞 I/O；日志走 `utils.logger.setup_logger(name)`，禁 `print`。详见 `AGENTS.md`。
 

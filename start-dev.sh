@@ -23,6 +23,28 @@ set -a
 . ./.env.dev
 set +a
 
+# ---- 依赖自动补齐 ----
+# uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
+# --inexact：只补不删，避免把用户额外装的 playwright / whisper 当「多余包」卸掉。
+# UV_EXTRAS 在 .env.dev 里配置，默认 server（Web UI 所需的 fastapi+uvicorn）。
+UV_EXTRAS="${UV_EXTRAS:-server}"
+EXTRA_ARGS=""
+for extra in $(echo "$UV_EXTRAS" | tr ',' ' '); do
+    EXTRA_ARGS="$EXTRA_ARGS --extra $extra"
+done
+echo "checking backend deps (extras: $UV_EXTRAS) ..."
+# shellcheck disable=SC2086
+uv sync --project backend $EXTRA_ARGS --inexact
+
+# browser extra 只装 playwright 这个 Python 包，浏览器内核要另外下；
+# 该命令自身幂等，已装则直接返回
+case ",$UV_EXTRAS," in
+    *,browser,*)
+        echo "checking playwright browser ..."
+        uv run --project backend python -m playwright install chromium
+        ;;
+esac
+
 # OSTYPE 在以 sh 调用时可能为空，回退到 uname
 case "${OSTYPE:-$(uname -s 2>/dev/null || echo unknown)}" in
     msys* | cygwin* | win32 | MSYS* | MINGW* | CYGWIN*) IS_WINDOWS=1 ;;
@@ -90,7 +112,9 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 cd frontend
-[ -d node_modules ] || pnpm install
+# 无条件跑：pnpm install 幂等，且能在 lockfile 更新后补齐依赖
+# （原来的 `[ -d node_modules ] ||` 会让已存在但过期的 node_modules 永不更新）
+pnpm install
 # 前端同样放后台：若留在前台，bash 会把信号处理推迟到它结束，
 # Ctrl+C 时 trap 形同虚设，进程照样成为孤儿
 VITE_API_PORT="$VITE_API_PORT" pnpm dev --port "$FRONTEND_PORT" --strictPort &

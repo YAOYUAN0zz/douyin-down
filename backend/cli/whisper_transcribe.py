@@ -3,8 +3,9 @@
 whisper_transcribe.py — 对 douyin-downloader 下载的视频进行 Whisper 语音识别
 
 安装:
-  pip install openai-whisper rich
-  # ffmpeg: conda install -c conda-forge ffmpeg  或放 ffmpeg.exe 到同目录
+  uv sync --project backend --extra transcribe --inexact   # openai-whisper（rich 已是必装依赖）
+  # ffmpeg 由 imageio-ffmpeg 提供，无需另装
+  # 可选的繁转简：cd backend && uv pip install OpenCC
 
 用法:
   python whisper_transcribe.py                          # 扫描 ./Downloaded/ 下所有mp4
@@ -438,7 +439,7 @@ def main():
     parser.add_argument("-l", "--language", default="zh", help="语言 (默认 zh)")
     parser.add_argument("--srt", action="store_true", help="同时输出SRT字幕")
     parser.add_argument("--skip-existing", action="store_true", help="跳过已有transcript的视频")
-    parser.add_argument("--sc", action="store_true", help="繁体转简体 (需 pip install OpenCC)")
+    parser.add_argument("--sc", action="store_true", help="繁体转简体 (需额外安装 OpenCC)")
     parser.add_argument(
         "-o",
         "--output",
@@ -463,7 +464,9 @@ def main():
     try:
         import whisper
     except ImportError:
-        display.dep_fail("openai-whisper", "pip install openai-whisper")
+        display.dep_fail(
+            "openai-whisper", "uv sync --project backend --extra transcribe --inexact"
+        )
         sys.exit(1)
     display.dep_ok("whisper", "已安装")
 
@@ -475,7 +478,8 @@ def main():
             converter = OpenCC("t2s")
             display.dep_ok("OpenCC", "繁体→简体")
         except ImportError:
-            display.dep_fail("OpenCC", "pip install OpenCC")
+            # OpenCC 未声明在 pyproject 的任何 extra 里，按需临时装进后端环境
+            display.dep_fail("OpenCC", "cd backend && uv pip install OpenCC")
             sys.exit(1)
 
     console.print()

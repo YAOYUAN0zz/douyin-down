@@ -1,4 +1,4 @@
-# Windows 本机开发启动脚本（与 start-dev.sh 等价）
+﻿# Windows 本机开发启动脚本（与 start-dev.sh 等价）
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
@@ -15,6 +15,25 @@ $envMap = @{}
 Get-Content .env.dev | Where-Object { $_ -match "^\s*[^#].*=" } | ForEach-Object {
     $k, $v = $_ -split "=", 2
     $envMap[$k.Trim()] = $v.Trim()
+}
+
+# ---- 依赖自动补齐 ----
+# uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
+# --inexact：只补不删，避免把用户额外装的 playwright / whisper 当「多余包」卸掉。
+$uvExtras = if ($envMap["UV_EXTRAS"]) { $envMap["UV_EXTRAS"] } else { "server" }
+$extraArgs = @()
+foreach ($extra in ($uvExtras -split ",")) {
+    $name = $extra.Trim()
+    if ($name) { $extraArgs += @("--extra", $name) }
+}
+Write-Host "checking backend deps (extras: $uvExtras) ..."
+uv sync --project backend @extraArgs --inexact
+if ($LASTEXITCODE -ne 0) { Write-Error "后端依赖安装失败，请检查网络或镜像源可用性" }
+
+# browser extra 只装 playwright 这个 Python 包，浏览器内核要另外下；该命令自身幂等
+if ($uvExtras -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ -eq "browser" }) {
+    Write-Host "checking playwright browser ..."
+    uv run --project backend python -m playwright install chromium
 }
 
 function Test-PortFree([int]$Port) {
@@ -47,7 +66,8 @@ $backendJob = Start-Process -PassThru -NoNewWindow uv -WorkingDirectory $PSScrip
     -ArgumentList "run", "--project", "backend", "douyin-dl", "--serve", "--serve-host", $backendHost, "--serve-port", $backendPort
 try {
     Set-Location frontend
-    if (-not (Test-Path node_modules)) { pnpm install }
+    # 无条件跑：pnpm install 幂等，且能在 lockfile 更新后补齐已存在但过期的 node_modules
+    pnpm install
     $env:VITE_API_PORT = "$backendPort"
     pnpm dev --port $frontendPort --strictPort
 } finally {

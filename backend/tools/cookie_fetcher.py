@@ -81,7 +81,9 @@ async def capture_cookies(args: argparse.Namespace) -> int:
         from playwright.async_api import async_playwright  # type: ignore
     except ImportError:  # pragma: no cover - defensive path
         print(
-            "[ERROR] Playwright is not installed. Run `pip install playwright` first.",
+            "[ERROR] Playwright is not installed. Run:\n"
+            "  uv sync --project backend --extra browser --inexact\n"
+            "  uv run --project backend python -m playwright install chromium",
             file=sys.stderr,
         )
         return 1

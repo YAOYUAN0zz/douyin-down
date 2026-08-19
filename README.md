@@ -69,17 +69,25 @@ A practical Douyin downloader supporting videos, image-notes, collections, music
 
 ### 2) Install dependencies
 
-```bash
-cd backend
-uv sync --extra server
-```
+**Usually you don't need to.** `start-dev.sh` / `start-dev.ps1` / `start-prod.sh` bring both backend and frontend dependencies up to date on every launch (idempotent — a no-op once everything is installed).
 
-For browser fallback and automatic cookie capture:
+Dependencies resolve through China-based mirrors by default (Python → Tsinghua TUNA, Node → npmmirror), so first-time installs don't stall. To use the official registries instead, override via environment variables — no file edits needed:
 
 ```bash
-uv sync --extra server --extra browser
-uv run python -m playwright install chromium
+UV_DEFAULT_INDEX=https://pypi.org/simple
+npm_config_registry=https://registry.npmjs.org
 ```
+
+For browser fallback and automatic cookie capture, set `UV_EXTRAS=server,browser` in `.env.dev` — the startup script then installs the Chromium engine too.
+
+Manual install (only needed for pure-CLI use without the startup scripts):
+
+```bash
+uv sync --project backend --extra server --inexact
+```
+
+> `--inexact` means "add, never remove". Without it, uv uninstalls anything outside the
+> requested extras — including playwright/whisper you installed earlier.
 
 ### 3) Copy config file
 
@@ -182,7 +190,7 @@ uv run --project backend douyin-dl -c config.yml \
 | `--hot-board [N]` | Fetch Douyin hot search board and write JSONL; optional top-N |
 | `--search KEYWORD` | Search videos by keyword, write JSONL |
 | `--search-max N` | Max items for `--search` (default 50) |
-| `--serve` | Run as REST API server (requires `pip install fastapi uvicorn`) |
+| `--serve` | Run as REST API server (needs the `server` extra; startup scripts install it automatically) |
 | `--serve-host HOST` | REST server listen host (default 127.0.0.1) |
 | `--serve-port PORT` | REST server listen port (default 8000) |
 | `--version` | Show version number |
@@ -358,10 +366,11 @@ After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 - **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
 - **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
+- **Edit settings in the UI:** download path, quality, concurrency, what to save (video/cover/music/avatar/JSON), naming templates, proxy, comment collection, live recording, transcription, and completion notifications are all editable on the **Settings** page and written straight back to `config.yml` — **no hand-editing required**. Keys you authored manually but the page doesn't cover are preserved. Everything takes effect on save except concurrency, which needs a server restart (the page says so).
 
 Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
 
-Auto fetch requires Playwright (`pip install playwright && playwright install chromium`). Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
+Auto fetch requires Playwright. Set `UV_EXTRAS=server,browser` in `.env.dev` and the startup script installs it (engine included); the manual equivalent is `uv sync --project backend --extra browser --inexact && uv run --project backend python -m playwright install chromium`. Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
 
 ### Send a notification on completion
 

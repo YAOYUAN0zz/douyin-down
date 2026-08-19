@@ -61,17 +61,21 @@
 
 ### 2) 安装依赖
 
+**通常不用手动装**：`start-dev.sh` / `start-dev.ps1` / `start-prod.sh` 每次启动都会自动补齐前后端依赖（幂等，装齐时秒回）。依赖默认走国内镜像（Python→清华 TUNA，Node→npmmirror），首次安装不会卡在超时上。
+
+需要浏览器兜底或自动获取 Cookie 时，在 `.env.dev` 里把 `UV_EXTRAS` 改成 `server,browser`，启动脚本会连 Chromium 内核一起装好。
+
+只在纯 CLI、不走启动脚本时才需要手动装：
+
 ```bash
-cd backend
-uv sync --extra server
+uv sync --project backend --extra server --inexact
 ```
 
-如需浏览器兜底或自动获取 Cookie：
+> `--inexact` 表示「只补不删」。不加它，uv 会把环境里不属于本次 extras 的包
+> （如你装过的 playwright、whisper）当成多余包卸掉。
 
-```bash
-uv sync --extra server --extra browser
-uv run python -m playwright install chromium
-```
+需要走官方源时用环境变量覆盖即可，无需改文件：
+`UV_DEFAULT_INDEX=https://pypi.org/simple`、`npm_config_registry=https://registry.npmjs.org`。
 
 ### 3) 复制配置
 
@@ -174,7 +178,7 @@ uv run --project backend douyin-dl -c config.yml \
 | `--hot-board [N]` | 拉取抖音热搜榜并导出 JSONL，可选上限 N |
 | `--search KEYWORD` | 按关键词搜索作品并导出 JSONL |
 | `--search-max N` | `--search` 场景下最多拉取条数（默认 50） |
-| `--serve` | 以 REST API 服务模式运行（需要 `pip install fastapi uvicorn`） |
+| `--serve` | 以 REST API 服务模式运行（需 `server` extra，启动脚本会自动装） |
 | `--serve-host HOST` | REST 服务监听地址（默认 127.0.0.1） |
 | `--serve-port PORT` | REST 服务监听端口（默认 8000） |
 | `--version` | 显示版本号 |
@@ -354,16 +358,21 @@ uv run --project backend douyin-dl --serve --serve-port 8000
   仅作用于该次任务，不改全局配置；
 - **参数状态**：面板展示必需参数（`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`）是否齐全；
 - **自动获取参数**：点击按钮后服务器打开浏览器窗口，完成抖音登录即**自动检测并保存** cookie 与
-  msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认。
+  msToken（写入 `.cookies.json`，无需终端交互）；未自动完成时可点「我已完成登录」手动确认；
+- **设置页改配置**：下载目录、画质、并发、保存内容（视频/封面/音乐/头像/JSON）、命名模板、
+  代理、评论采集、直播录制、转写、完成通知都可在**设置**页直接改，保存即写回 `config.yml`，
+  **无需手动编辑配置文件**；未在页面上覆盖的手写配置项不会被抹掉。除并发数需重启服务外
+  （页面会提示），其余保存即生效。
 
 抓取到的参数持久化在 `.cookies.json`（与 `config.yml` 同目录），服务重启后继续生效；
 `config.yml` 内嵌的 `cookies:` 仅在首次运行（尚无 `.cookies.json`）时作为种子导入，
 之后以 `.cookies.json` 为准，不会被 config 里的旧值覆盖。
 
-自动获取依赖 Playwright：
+自动获取依赖 Playwright。推荐在 `.env.dev` 里设 `UV_EXTRAS=server,browser`，启动脚本会自动装好；手动等价命令：
 
 ```bash
-pip install playwright && playwright install chromium
+uv sync --project backend --extra browser --inexact
+uv run --project backend python -m playwright install chromium
 ```
 
 浏览器引擎、无头模式与登录超时可通过 `server.auth_flow.*` 配置（见 `config.example.yml`）。

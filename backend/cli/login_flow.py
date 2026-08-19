@@ -47,8 +47,9 @@ async def interactive_relogin(
     except Exception as exc:  # noqa: BLE001 — surface, don't crash the run
         logger.error("Interactive relogin failed to launch: %s", exc)
         print(
-            "[ERROR] 无法启动登录流程。请确认已安装 Playwright："
-            "\n  pip install playwright && playwright install chromium"
+            "[ERROR] 无法启动登录流程。请确认已安装 Playwright（browser extra）："
+            "\n  uv sync --project backend --extra browser --inexact"
+            "\n  uv run --project backend python -m playwright install chromium"
             "\n或手动更新 config/cookies.json 后重试。"
         )
         return None

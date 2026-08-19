@@ -62,6 +62,17 @@ all = [
 [project.scripts]
 douyin-dl = "cli.main:main"
 
+[tool.uv]
+# 本项目主要面向国内用户，默认走清华镜像，免去首次安装动辄十几分钟甚至超时。
+# 需要走官方源时（海外网络、或镜像尚未同步的新版本），用环境变量覆盖，无需改本文件：
+#   UV_DEFAULT_INDEX=https://pypi.org/simple
+# 注意：uv.lock 记录了各包的来源 registry，换 index 会让 uv 认为 lock 过期并
+# 重新解析（一次几分钟），属预期行为，不是出错。
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true
+
 [tool.setuptools.packages.find]
 include = ["cli*", "core*", "auth*", "config*", "control*", "storage*", "utils*", "tools*", "server*"]
 
