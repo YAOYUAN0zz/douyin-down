@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [vue()],
     server: {
+      // 二维码等图片与 README 共用仓库根 img/，dev server 需放行该目录；
+      // 只放行 img/ 而非整个仓库根，避免 .cookies.json / config.yml 被 /@fs/ 读到
+      fs: { allow: [".", "../img"] },
       proxy: {
         "/api": {
           target: `http://127.0.0.1:${apiPort}`,

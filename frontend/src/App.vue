@@ -19,6 +19,7 @@ import {
 import { computed, h, onMounted, ref, watchEffect } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import AuthModal from "./components/AuthModal.vue";
+import SocialLinks from "./components/SocialLinks.vue";
 import { useAuthStore } from "./stores/auth";
 import { useJobsStore } from "./stores/jobs";
 
@@ -117,10 +118,12 @@ onMounted(() => {
             :width="180"
             :collapsed="collapsed"
             show-trigger
+            content-style="display: flex; flex-direction: column; height: 100%;"
             @collapse="collapsed = true"
             @expand="collapsed = false"
           >
-            <n-menu :value="route.path" :options="menuOptions" />
+            <n-menu :value="route.path" :options="menuOptions" style="flex: 1" />
+            <SocialLinks />
           </n-layout-sider>
           <n-layout-content content-style="padding: var(--dd-space-6);">
             <router-view />

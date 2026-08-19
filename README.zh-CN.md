@@ -608,6 +608,35 @@ sqlite3 dy_downloader.db "SELECT aweme_id, title, author_name, datetime(download
 
 点击链接加入群聊【QQ群】：[https://qm.qq.com/q/9xoNt8Wzv4](https://qm.qq.com/q/9xoNt8Wzv4)
 
+## 作者与致谢
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <sub>原始项目</sub><br/>
+      <a href="https://github.com/jiji262/douyin-downloader"><b>jiji262/douyin-downloader</b></a><br/>
+      <sub>下载内核 · CLI · 去水印解析</sub>
+    </td>
+    <td align="center" width="50%">
+      <sub>二次开发</sub><br/>
+      <a href="https://github.com/shiyi-0x7f"><b>拾壹0x7f</b></a><br/>
+      <sub>Web UI · monorepo 重构 · 历史记录</sub>
+    </td>
+  </tr>
+</table>
+
+感谢 [jiji262](https://github.com/jiji262) 的原始实现；本 fork 在其之上补充了 Vue 3 Web 控制台与前后端分离结构。
+
+### 关注拾壹0x7f
+
+<p>
+  <a href="https://github.com/shiyi-0x7f"><img src="https://img.shields.io/badge/GitHub-shiyi--0x7f-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
+  <a href="https://space.bilibili.com/19276680"><img src="https://img.shields.io/badge/Bilibili-19276680-00A1D6?style=flat-square&logo=bilibili&logoColor=white" alt="Bilibili" /></a>
+  <img src="https://img.shields.io/badge/WeChat-%E6%89%AB%E7%A0%81%E5%85%B3%E6%B3%A8-07C160?style=flat-square&logo=wechat&logoColor=white" alt="微信公众号" />
+</p>
+
+<img src="./img/wechat-mp-qr.jpg" alt="微信公众号二维码" width="180" />
+
 
 ## 免责声明
 
