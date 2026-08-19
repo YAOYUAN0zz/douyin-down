@@ -29,6 +29,7 @@ CODE_VALIDATION = 42200  # 请求体校验失败（FastAPI RequestValidationErro
 CODE_INTERNAL = 50000  # 未分类服务端错误
 CODE_UPSTREAM_ERROR = 50200  # 抖音上游接口异常
 CODE_DB_DISABLED = 50300  # 数据库未启用（config.database=false），历史类端点不可用
+CODE_BROWSER_UNAVAILABLE = 50301  # 缺 Playwright 包或浏览器内核，无法自动获取下载参数
 
 
 class ApiError(Exception):

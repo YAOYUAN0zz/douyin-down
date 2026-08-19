@@ -19,6 +19,10 @@ export const useAuthStore = defineStore("auth", {
   getters: {
     ready: (s) => s.status?.ready ?? false,
     flowRunning: (s) => s.flow?.status === "running",
+    // 环境缺失时提前禁用获取入口：与后端 /auth/fetch 的前置校验同一判据，
+    // 让用户在点击前就知道装没装齐，而不是点了才收到 503
+    browserReady: (s) => s.status?.browser_ready ?? true,
+    browserHint: (s) => s.status?.browser_hint ?? "",
   },
   actions: {
     init() {

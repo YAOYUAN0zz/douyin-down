@@ -48,7 +48,7 @@ uv sync --project backend --extra server --inexact
 > `--inexact` 很重要：不加会把环境里「不属于本次 extras」的包当多余包**卸掉**，
 > 比如你装过的 playwright 会被静默清掉。
 
-**可选 extra**：改 `.env.dev` 里的 `UV_EXTRAS`（逗号分隔），启动脚本会照着装。默认 `server`。
+**可选 extra**：改 `.env.dev` 里的 `UV_EXTRAS`（逗号分隔），启动脚本会照着装。默认 `server,browser`——没有 `browser` 就拿不到下载参数，而没有下载参数下载会被直接拒绝（见下方「前置校验」）。
 
 | extra | 装什么 | 何时需要 |
 |---|---|---|
@@ -56,12 +56,26 @@ uv sync --project backend --extra server --inexact
 | `browser` | playwright | 自动抓 Cookie、超过 20 条作品的浏览器兜底翻页 |
 | `dev` | pytest + ruff + hypothesis | 改代码 / 跑测试 |
 
-装 `browser` 后还需下载浏览器内核。在 `.env.dev` 里写 `UV_EXTRAS=server,browser` 后，启动脚本会连内核一起装好；手动等价命令：
+装 `browser` 后还需下载浏览器内核（约 150MB）。启动脚本会连内核一起装好（幂等，装过就秒回）；手动等价命令：
 
 ```bash
 uv sync --project backend --extra server --extra browser --inexact
 uv run --project backend python -m playwright install chromium
 ```
+
+> 若你的 `.env.dev` 是早于 `UV_EXTRAS` 引入时创建的（文件里没这个键），启动脚本会用缺省值
+> `server,browser`，同样会装齐；但建议对照 `.env.dev.example` 补上该键。
+
+### 前置校验（装没装齐，点下去就知道）
+
+环境或凭据不满足时，请求在入口就被拒绝，不会产生一个注定失败的任务：
+
+| 场景 | 结果 |
+|---|---|
+| 缺 Playwright 包 / 浏览器内核 | 「自动获取参数」按钮置灰并显示修复命令；直接调 `POST /auth/fetch` → 503/50301 |
+| 缺必需 cookie（`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`） | 提交下载 → 401/40100，报错指名缺哪些键，**不建任务** |
+
+这样排错只需看一条报错，而不是去翻某个 failed 任务的详情。
 
 ### 镜像源
 

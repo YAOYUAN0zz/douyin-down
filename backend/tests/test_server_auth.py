@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover
 
 from auth import CookieManager
 from config import ConfigLoader
+from server.api import auth as auth_api
 from server.app import build_app
 from server.auth_flow import AuthFlowStatus, BrowserAuthFlow
 
@@ -114,6 +115,13 @@ def test_auth_fetch_confirm_without_session_returns_409(tmp_path):
 
 def test_auth_fetch_start_rejects_concurrent_sessions(tmp_path, monkeypatch):
     app = _make_app(tmp_path)
+
+    # 绕开浏览器环境前置校验：本用例只关心会话并发语义，且不应依赖本机是否装了
+    # Playwright 内核（前置校验本身由 test_server_preflight.py 覆盖）
+    async def skip_browser_check(browser="chromium"):
+        return None
+
+    monkeypatch.setattr(auth_api, "ensure_browser_env", skip_browser_check)
 
     async def slow_run(self):
         # 等待 cancel 信号（由 lifespan 关停时的 auth_flow.shutdown() 触发）

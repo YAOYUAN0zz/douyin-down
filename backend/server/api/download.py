@@ -4,6 +4,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Request
 
+from server.preflight import ensure_credentials
 from server.schemas import (
     CODE_BATCH_LIMIT,
     CODE_INVALID_PARAM,
@@ -23,6 +24,9 @@ async def create_job(req: DownloadRequest, request: Request) -> Dict[str, Any]:
     if not req.url:
         raise ApiError(400, CODE_INVALID_PARAM, "url is required")
     quality = normalize_quality(req.video_quality)
+    # 参数校验在前（调用方立刻可改），凭据校验在后：凭据不全时任务必然在上游
+    # 请求处失败，且原因只留在 job 详情里，故这里直接拒收而不是排队
+    ensure_credentials(request.app.state.deps.cookie_manager)
     options = {"video_quality": quality} if quality else None
     job = await request.app.state.job_manager.submit(req.url, options=options)
     return ok({"job_id": job.job_id, "status": job.status, "url": job.url})
@@ -36,6 +40,8 @@ async def create_batch_jobs(req: BatchDownloadRequest, request: Request) -> Dict
     if len(urls) > MAX_BATCH_URLS:
         raise ApiError(400, CODE_BATCH_LIMIT, f"一次最多提交 {MAX_BATCH_URLS} 个链接")
     quality = normalize_quality(req.video_quality)
+    # 同 create_job：批量场景下半路失败更难排查，宁可整批拒收
+    ensure_credentials(request.app.state.deps.cookie_manager)
     options = {"video_quality": quality} if quality else None
     manager = request.app.state.job_manager
     jobs = [await manager.submit(u, options=options) for u in urls]

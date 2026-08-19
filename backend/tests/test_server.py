@@ -14,6 +14,8 @@ except ImportError:  # pragma: no cover
     pytest.skip("fastapi not installed", allow_module_level=True)
 
 
+from conftest import mark_credentials_ready
+
 from config import ConfigLoader
 from server.app import build_app
 from server.jobs import JobManager
@@ -72,6 +74,7 @@ def test_download_endpoint_creates_job(tmp_path, monkeypatch):
         return {"total": 0, "success": 0, "failed": 0, "skipped": 0}
 
     app.state.job_manager.executor = fake_executor
+    mark_credentials_ready(app)
 
     with TestClient(app) as client:
         resp = client.post("/api/v1/download", json={"url": "https://www.douyin.com/video/123"})

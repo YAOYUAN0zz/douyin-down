@@ -77,7 +77,7 @@ UV_DEFAULT_INDEX=https://pypi.org/simple
 npm_config_registry=https://registry.npmjs.org
 ```
 
-For browser fallback and automatic cookie capture, set `UV_EXTRAS=server,browser` in `.env.dev` — the startup script then installs the Chromium engine too.
+`UV_EXTRAS` in `.env.dev` defaults to `server,browser`, so the startup script installs Playwright and the Chromium engine (~150MB on first run) — without them you cannot capture download parameters, and downloads are rejected up front when parameters are missing.
 
 Manual install (only needed for pure-CLI use without the startup scripts):
 
@@ -334,13 +334,13 @@ Endpoints (responses share one envelope: `{code, message, data}`, success `code=
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Web UI |
-| POST | `/api/v1/download` | Submit `{"url", "video_quality"?}`, returns `{job_id, status}` |
-| POST | `/api/v1/download/batch` | Batch submit `{"urls", "video_quality"?}` (max 100 per call) |
+| POST | `/api/v1/download` | Submit `{"url", "video_quality"?}`, returns `{job_id, status}`; rejected with 401/40100 when download parameters are missing |
+| POST | `/api/v1/download/batch` | Batch submit `{"urls", "video_quality"?}` (max 100 per call); same up-front credential check, whole batch rejected |
 | POST | `/api/v1/works/list` | Preview a works list `{"url", "cursor", "count"}`; items include all quality tiers |
 | GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts/live progress (`progress` field) |
 | GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
 | GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
-| POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters (requires playwright) |
+| POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters; 503/50301 with fix commands when Playwright or the browser engine is missing |
 | GET | `/api/v1/auth/fetch/status` | Poll the capture session progress |
 | POST | `/api/v1/auth/fetch/confirm` | Manually declare "logged in" to capture immediately |
 | POST | `/api/v1/auth/fetch/cancel` | Cancel the running capture session |
@@ -361,7 +361,7 @@ After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 
 Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
 
-Auto fetch requires Playwright. Set `UV_EXTRAS=server,browser` in `.env.dev` and the startup script installs it (engine included); the manual equivalent is `uv sync --project backend --extra browser --inexact && uv run --project backend python -m playwright install chromium`. Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
+Auto fetch requires Playwright, installed by default (`UV_EXTRAS=server,browser`, engine included). If it is missing, the "Auto fetch" button is disabled and shows the exact commands to run, and nothing enters a running state — the manual equivalent is `uv sync --project backend --extra browser --inexact && uv run --project backend python -m playwright install chromium`. Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
 
 ### Send a notification on completion
 

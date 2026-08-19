@@ -20,7 +20,9 @@ Get-Content .env.dev | Where-Object { $_ -match "^\s*[^#].*=" } | ForEach-Object
 # ---- 依赖自动补齐 ----
 # uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
 # --inexact：只补不删，避免把用户额外装的 playwright 当「多余包」卸掉。
-$uvExtras = if ($envMap["UV_EXTRAS"]) { $envMap["UV_EXTRAS"] } else { "server" }
+# 缺省值含 browser：老的 .env.dev（早于该键引入）读不到它，若回退成只装 server，
+# 用户就会在「获取参数」时撞上缺 Playwright。
+$uvExtras = if ($envMap["UV_EXTRAS"]) { $envMap["UV_EXTRAS"] } else { "server,browser" }
 $extraArgs = @()
 foreach ($extra in ($uvExtras -split ",")) {
     $name = $extra.Trim()
