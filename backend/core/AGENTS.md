@@ -20,7 +20,7 @@ Core business logic — Douyin API client, URL parsing, download orchestration, 
 | `mix_downloader.py` | Downloads Douyin "mix" (collection) content |
 | `music_downloader.py` | Downloads music-related content |
 | `user_mode_registry.py` | Auto-discovers and registers user mode strategies from `user_modes/` |
-| `transcript_manager.py` | Manages Whisper transcription for downloaded audio |
+| `ffmpeg.py` | Resolves the bundled ffmpeg binary (used by live-replay remux) |
 
 ## Subdirectories
 

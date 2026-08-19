@@ -158,8 +158,14 @@ class BrowserAuthFlow:
         try:
             from playwright.async_api import async_playwright  # type: ignore
         except ImportError:
+            # 本项目统一用 uv 管依赖（禁裸 pip）。长期方案是在 .env.dev 的
+            # UV_EXTRAS 里加 browser，之后每次启动都会自动装好。
             raise RuntimeError(
-                "未安装 Playwright。请先执行 `pip install playwright && playwright install chromium`。"
+                "未安装 Playwright。请执行：\n"
+                "  uv sync --project backend --extra browser --inexact\n"
+                "  uv run --project backend python -m playwright install chromium\n"
+                "或在 .env.dev 中设置 UV_EXTRAS=server,browser 后重新运行启动脚本，"
+                "依赖会在启动时自动补齐。"
             )
 
         observed_cookie_headers: List[str] = []

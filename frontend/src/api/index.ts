@@ -9,6 +9,9 @@ import type {
   HistoryQuery,
   HistoryStats,
   JobDto,
+  SettingsPatch,
+  SettingsSnapshot,
+  SettingsUpdateResult,
   WorksPage,
 } from "./types";
 
@@ -80,5 +83,11 @@ export const api = {
   },
   authFetchCancel(): Promise<AuthFlowSnapshot> {
     return apiPost("/api/v1/auth/fetch/cancel");
+  },
+  settings(): Promise<SettingsSnapshot> {
+    return apiGet("/api/v1/settings");
+  },
+  settingsUpdate(patch: SettingsPatch): Promise<SettingsUpdateResult> {
+    return apiRequest("/api/v1/settings", "PUT", patch);
   },
 };

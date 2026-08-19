@@ -4,7 +4,7 @@
 # cli
 
 ## Purpose
-Command-line interface — argument parsing, main async download loop, progress display with Rich, and optional Whisper transcription integration.
+Command-line interface — argument parsing, main async download loop, and progress display with Rich.
 
 ## Key Files
 
@@ -13,7 +13,7 @@ Command-line interface — argument parsing, main async download loop, progress 
 | `__init__.py` | Package marker |
 | `main.py` | CLI entry point: `main()` → `main_async()` → per-URL `download_url()` orchestration |
 | `progress_display.py` | Rich-based terminal UI — banners, progress bars, step tracking, result summaries |
-| `whisper_transcribe.py` | Optional audio transcription via OpenAI Whisper |
+| `login_flow.py` | Interactive re-login when cookies expire mid-run |
 
 ## For AI Agents
 
@@ -44,6 +44,5 @@ Command-line interface — argument parsing, main async download loop, progress 
 
 ### External
 - `rich` — terminal UI rendering
-- `openai-whisper` — optional transcription (behind `[transcribe]` extra)
 
 <!-- MANUAL: -->

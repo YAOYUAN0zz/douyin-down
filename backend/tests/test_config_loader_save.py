@@ -104,7 +104,7 @@ def test_save_creates_parent_directory(tmp_path):
 
 
 def test_save_nested_sub_models(tmp_path):
-    """Nested sub-models (comments/live/transcript/notifications) must be
+    """Nested sub-models (comments/live/notifications) must be
     written as nested dicts, not flattened or dropped."""
     config_path = tmp_path / "config.yml"
 

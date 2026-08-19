@@ -170,12 +170,12 @@ class ConfigLoader:
         "proxy",
         "retry_times",
         "folderstyle",
+        "author_dir",
         "filename_template",
         "folder_template",
         "video_quality",
         "comments",
         "live",
-        "transcript",
         "notifications",
     )
 
@@ -234,11 +234,11 @@ class ConfigLoader:
             logger.warning("Failed to write config %s: %s", target, exc)
             return False
 
-        # ``transcript.api_key`` (Requirement 5) and other potentially
-        # sensitive fields land inside this file as plaintext. On POSIX
-        # we tighten permissions to 0o600 (owner read/write only) right
-        # after the write so a co-located malicious process or another
-        # local user can't ``cat`` the key. On Windows we skip — POSIX
+        # Notification tokens (bark key / telegram bot_token / webhook URL)
+        # and any cookies the user hand-wrote land inside this file as
+        # plaintext. On POSIX we tighten permissions to 0o600 (owner
+        # read/write only) right after the write so a co-located malicious
+        # process or another local user can't ``cat`` them. On Windows we skip — POSIX
         # mode bits aren't meaningful, ACLs are the right knob, and
         # changing them belongs to a separate hardening task.
         if sys.platform != "win32":

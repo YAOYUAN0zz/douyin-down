@@ -153,7 +153,7 @@ async def download_url(
             safe_config = {
                 k: v
                 for k, v in config.config.items()
-                if k not in ("cookies", "cookie", "transcript")
+                if k not in ("cookies", "cookie")
             }
             await database.add_history(
                 {
@@ -340,8 +340,10 @@ async def _run_serve_subcommand(args, config: ConfigLoader) -> None:
         from server.app import run_server
     except ImportError as exc:
         display.print_error(
-            f"REST 服务模式需要安装可选依赖 fastapi + uvicorn："
-            f"\n  pip install fastapi uvicorn\n原始错误：{exc}"
+            f"REST 服务模式需要可选依赖 fastapi + uvicorn（server extra）："
+            f"\n  uv sync --project backend --extra server --inexact"
+            f"\n或直接用 ./start-dev.sh / start-dev.ps1 启动，依赖会自动补齐。"
+            f"\n原始错误：{exc}"
         )
         return
 

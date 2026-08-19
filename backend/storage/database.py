@@ -108,24 +108,6 @@ class Database:
             )
         """)
 
-        await db.execute("""
-            CREATE TABLE IF NOT EXISTS transcript_job (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                aweme_id TEXT NOT NULL,
-                video_path TEXT NOT NULL,
-                transcript_dir TEXT,
-                text_path TEXT,
-                json_path TEXT,
-                model TEXT NOT NULL,
-                status TEXT NOT NULL,
-                skip_reason TEXT,
-                error_message TEXT,
-                created_at INTEGER,
-                updated_at INTEGER,
-                UNIQUE(aweme_id, video_path, model)
-            )
-        """)
-
         # `job` persists the task-center JobManager records so they survive
         # a sidecar restart. Only terminal jobs (success / failed / cancelled)
         # are ever written here — see server/jobs.py. `last_retry_summary`
@@ -156,12 +138,6 @@ class Database:
         await db.execute("CREATE INDEX IF NOT EXISTS idx_aweme_id ON aweme(aweme_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_author_id ON aweme(author_id)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_download_time ON aweme(download_time)")
-        await db.execute(
-            "CREATE INDEX IF NOT EXISTS idx_transcript_aweme_id ON transcript_job(aweme_id)"
-        )
-        await db.execute(
-            "CREATE INDEX IF NOT EXISTS idx_transcript_status ON transcript_job(status)"
-        )
         await db.execute("CREATE INDEX IF NOT EXISTS idx_job_created_at ON job(created_at)")
         await db.execute("CREATE INDEX IF NOT EXISTS idx_job_status ON job(status)")
 
@@ -592,80 +568,6 @@ class Database:
             for row in rows
         ]
 
-    async def upsert_transcript_job(self, job_data: Dict[str, Any]):
-        now_ts = int(datetime.now().timestamp())
-        db = await self._get_conn()
-        await db.execute(
-            """
-            INSERT INTO transcript_job (
-                aweme_id,
-                video_path,
-                transcript_dir,
-                text_path,
-                json_path,
-                model,
-                status,
-                skip_reason,
-                error_message,
-                created_at,
-                updated_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(aweme_id, video_path, model) DO UPDATE SET
-                transcript_dir = excluded.transcript_dir,
-                text_path = excluded.text_path,
-                json_path = excluded.json_path,
-                status = excluded.status,
-                skip_reason = excluded.skip_reason,
-                error_message = excluded.error_message,
-                updated_at = excluded.updated_at
-        """,
-            (
-                job_data.get("aweme_id"),
-                job_data.get("video_path"),
-                job_data.get("transcript_dir"),
-                job_data.get("text_path"),
-                job_data.get("json_path"),
-                job_data.get("model") or "gpt-4o-mini-transcribe",
-                job_data.get("status"),
-                job_data.get("skip_reason"),
-                job_data.get("error_message"),
-                now_ts,
-                now_ts,
-            ),
-        )
-        await db.commit()
-
-    async def get_transcript_job(self, aweme_id: str) -> Optional[Dict[str, Any]]:
-        db = await self._get_conn()
-        cursor = await db.execute(
-            """
-            SELECT aweme_id, video_path, transcript_dir, text_path, json_path,
-                   model, status, skip_reason, error_message, created_at, updated_at
-            FROM transcript_job
-            WHERE aweme_id = ?
-            ORDER BY updated_at DESC, id DESC
-            LIMIT 1
-            """,
-            (aweme_id,),
-        )
-        row = await cursor.fetchone()
-        if not row:
-            return None
-        return {
-            "aweme_id": row[0],
-            "video_path": row[1],
-            "transcript_dir": row[2],
-            "text_path": row[3],
-            "json_path": row[4],
-            "model": row[5],
-            "status": row[6],
-            "skip_reason": row[7],
-            "error_message": row[8],
-            "created_at": row[9],
-            "updated_at": row[10],
-        }
-
     async def delete_aweme_by_ids(self, aweme_ids: List[str]) -> int:
         """Delete aweme rows by their string id. Returns the number of rows removed.
 
@@ -708,7 +610,7 @@ class Database:
     async def truncate_history(self) -> None:
         """Delete every row from `aweme` and `download_history`.
 
-        Does not touch disk files or any other table (e.g. transcript_job).
+        Does not touch disk files or any other table (e.g. `job`).
         """
         db = await self._get_conn()
         if self._conn_lock is None:

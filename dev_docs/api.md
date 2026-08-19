@@ -89,6 +89,23 @@
 | POST | `/auth/fetch/confirm` | 声明已完成登录，立即抓取；无会话 → 409 |
 | POST | `/auth/fetch/cancel` | 取消会话；无会话 → 409 |
 
+### 设置（settings）
+
+| Method | Path | 请求 | data |
+|---|---|---|---|
+| GET | `/settings` | — | `{values, config_path, requires_restart_keys[], env_overrides}` |
+| PUT | `/settings` | 局部补丁，只带改动的键 | 同上 + `{saved, restart_required[]}` |
+
+- **白名单**：可改的键集中定义在 `backend/server/settings.py` 的 `_VALIDATORS`，同时也是校验规则的唯一来源。`cookies` / `link` / `database` 等运行时或敏感键**不可**经此端点修改 → 400/40000。
+- **局部更新**：未提交的键保持原值；嵌套段（`comments` / `live` / `notifications`）做浅合并，可只带改动的子键。
+- **原子性**：任一键校验失败则整个请求不落地，不会改一半。
+- **落盘**：写回 `config.yml`（`ConfigLoader.save()`，保留用户手写的其他键）。`saved=false` 表示服务运行在无配置文件的内存态，改动仅本次运行有效。
+- **环境变量接管**：`DOUYIN_PATH` / `DOUYIN_THREAD` / `DOUYIN_PROXY` 在 `ConfigLoader._load_config` 里**后于**配置文件合并，优先级更高。被设置时对应键写进 `config.yml` 也会在重启后被覆盖，因此 PUT 直接拒绝（400/40000），GET 通过 `env_overrides`（`{配置键: 环境变量名}`）告知前端禁用这些字段。
+- **生效时机**：
+  - 立即生效——画质、保存开关、命名模板、代理、评论/直播/通知等（下载时才读配置）；
+  - 热应用——`path`、`rate_limit`、`retry_times`（同步改写已构造的 FileManager / RateLimiter / RetryHandler）；
+  - **需重启**——`thread`（已烧进 `asyncio.Semaphore`，在途任务持有，不热改）。改动它时 `restart_required` 会带上该键，前端据此提示。
+
 ## 规划中的端点（见 `webui-redesign-report.md` §5）
 
-M3：`GET/PUT /settings`、`/resolve`；M4 剩余：server 侧通知派发与 `/notifications/test`。（发现/直播录制已按用户决定砍掉，不做 Web 化。）
+M3 剩余：`/resolve`；M4 剩余：server 侧通知派发与 `/notifications/test`。（发现/直播录制已按用户决定砍掉，不做 Web 化。）

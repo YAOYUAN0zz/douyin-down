@@ -6,7 +6,7 @@
 
 from fastapi import APIRouter
 
-from server.api import auth, download, history, jobs, system, works
+from server.api import auth, download, history, jobs, settings, system, works
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(system.router)
@@ -15,3 +15,4 @@ api_router.include_router(works.router)
 api_router.include_router(jobs.router)
 api_router.include_router(history.router)
 api_router.include_router(auth.router)
+api_router.include_router(settings.router)
