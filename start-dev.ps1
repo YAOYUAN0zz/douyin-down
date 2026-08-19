@@ -50,13 +50,20 @@ $frontendPort = if ($envMap["FRONTEND_PORT"]) { [int]$envMap["FRONTEND_PORT"] } 
 $backendPort = Select-Port $backendPort
 $frontendPort = Select-Port $frontendPort
 
-# 回写实际端口
-(Get-Content .env.dev) |
+# 回写实际端口。
+# 必须用 .NET 写而不是 `Set-Content -Encoding utf8`：Windows PowerShell 5.1 的
+# utf8 编码器**会写 BOM**，而 start-dev.sh 用 `. ./.env.dev` source 这个文件，
+# bash 会把 BOM 连着第一个键名当成命令名 →
+#   ./.env.dev: line 1: $'\357\273\277BACKEND_HOST=127.0.0.1': command not found
+# 两个脚本共用同一个 .env.dev，谁都不能给它加 BOM。
+$updated = (Get-Content .env.dev) |
     ForEach-Object {
         $_ -replace "^BACKEND_PORT=.*", "BACKEND_PORT=$backendPort" `
            -replace "^FRONTEND_PORT=.*", "FRONTEND_PORT=$frontendPort" `
            -replace "^VITE_API_PORT=.*", "VITE_API_PORT=$backendPort"
-    } | Set-Content -Encoding utf8 .env.dev
+    }
+[System.IO.File]::WriteAllLines(
+    (Join-Path $PSScriptRoot ".env.dev"), $updated, [System.Text.UTF8Encoding]::new($false))
 
 Write-Host "backend  -> http://${backendHost}:$backendPort"
 Write-Host "frontend -> http://127.0.0.1:$frontendPort"
