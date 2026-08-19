@@ -19,6 +19,17 @@ if command -v tasklist >/dev/null 2>&1; then
 fi
 
 [ -f .env.dev ] || cp .env.dev.example .env.dev
+
+# 剥掉 UTF-8 BOM。start-dev.ps1 曾用 `Set-Content -Encoding utf8` 回写端口，
+# 而 Windows PowerShell 5.1 的 utf8 编码器会带 BOM；bash source 时会把 BOM
+# 连着第一个键名当成命令名：
+#   ./.env.dev: line 1: $'\357\273\277BACKEND_HOST=127.0.0.1': command not found
+# ps1 已改为写无 BOM，这里兜住此前已被写坏的文件（跨机器同步同理）。
+if [ "$(head -c 3 .env.dev)" = "$(printf '\357\273\277')" ]; then
+    echo "removing UTF-8 BOM from .env.dev (written by an older start-dev.ps1)"
+    tail -c +4 .env.dev >.env.dev.nobom && mv .env.dev.nobom .env.dev
+fi
+
 set -a
 . ./.env.dev
 set +a
