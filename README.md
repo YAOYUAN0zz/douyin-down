@@ -585,6 +585,35 @@ sqlite3 dy_downloader.db "SELECT aweme_id, title, author_name, datetime(download
 
 点击链接加入群聊【QQ群】：[https://qm.qq.com/q/9xoNt8Wzv4](https://qm.qq.com/q/9xoNt8Wzv4)
 
+## Credits
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <sub>Original project</sub><br/>
+      <a href="https://github.com/jiji262/douyin-downloader"><b>jiji262/douyin-downloader</b></a><br/>
+      <sub>Download engine · CLI · watermark-free parsing</sub>
+    </td>
+    <td align="center" width="50%">
+      <sub>Fork & further development</sub><br/>
+      <a href="https://github.com/shiyi-0x7f"><b>拾壹0x7f</b> (shiyi-0x7f)</a><br/>
+      <sub>Web UI · monorepo refactor · history</sub>
+    </td>
+  </tr>
+</table>
+
+Thanks to [jiji262](https://github.com/jiji262) for the original implementation; this fork adds a Vue 3 web console and a split frontend/backend layout on top of it.
+
+### Follow 拾壹0x7f
+
+<p>
+  <a href="https://github.com/shiyi-0x7f"><img src="https://img.shields.io/badge/GitHub-shiyi--0x7f-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
+  <a href="https://space.bilibili.com/19276680"><img src="https://img.shields.io/badge/Bilibili-19276680-00A1D6?style=flat-square&logo=bilibili&logoColor=white" alt="Bilibili" /></a>
+  <img src="https://img.shields.io/badge/WeChat-Official%20Account-07C160?style=flat-square&logo=wechat&logoColor=white" alt="WeChat Official Account" />
+</p>
+
+<img src="./img/wechat-mp-qr.jpg" alt="WeChat Official Account QR" width="180" />
+
 ## Disclaimer
 
 This project is for technical research, learning, and personal data management only. Please use it legally and responsibly:

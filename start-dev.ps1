@@ -2,6 +2,14 @@
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
+# 外层若激活过别的虚拟环境，uv 会因与 --project backend 不符而告警；环境统一由 --project 决定
+$env:VIRTUAL_ENV = $null
+
+# 上次的后端没退干净会占着 .venv\Scripts\douyin-dl.exe，令 uv run 的重装步骤报 os error 32
+if (Get-Process douyin-dl -ErrorAction SilentlyContinue) {
+    Write-Error "检测到残留的 douyin-dl 进程，会占用 .venv\Scripts\douyin-dl.exe 导致启动失败。请先执行：taskkill /F /IM douyin-dl.exe"
+}
+
 if (-not (Test-Path .env.dev)) { Copy-Item .env.dev.example .env.dev }
 $envMap = @{}
 Get-Content .env.dev | Where-Object { $_ -match "^\s*[^#].*=" } | ForEach-Object {
@@ -43,5 +51,9 @@ try {
     $env:VITE_API_PORT = "$backendPort"
     pnpm dev --port $frontendPort --strictPort
 } finally {
-    if ($backendJob -and -not $backendJob.HasExited) { Stop-Process -Id $backendJob.Id -Force }
+    # uv 只是外层壳，真正的服务是它派生的 douyin-dl.exe / python.exe：
+    # 只停外层会留孤儿进程，占住端口与 exe，故按进程树清理
+    if ($backendJob -and -not $backendJob.HasExited) {
+        taskkill /F /T /PID $backendJob.Id 2>$null | Out-Null
+    }
 }

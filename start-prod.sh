@@ -9,4 +9,5 @@ set -a
 set +a
 
 (cd frontend && pnpm install --frozen-lockfile && pnpm build)
+unset VIRTUAL_ENV
 exec uv run --project backend douyin-dl --serve --serve-host "${BACKEND_HOST:-0.0.0.0}" --serve-port "${BACKEND_PORT:-8000}"
