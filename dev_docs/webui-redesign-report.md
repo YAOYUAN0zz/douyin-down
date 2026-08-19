@@ -51,7 +51,7 @@
 
 **功能缺失**
 - 任务不可取消/重试/删除/清空（后端也无对应端点）；无任务详情、无输出目录展示（后端 progress 已含 `output_dir`，前端未用，`server/jobs.py:49-57`）。
-- 无设置页：`config_loader.py:159-180` 已有 `_UI_PERSISTED_KEYS` 白名单与 `save()`，但本仓库无 settings 端点，配置写回能力闲置。
+- ~~无设置页：`config_loader.py` 已有 `_UI_PERSISTED_KEYS` 白名单与 `save()`，但本仓库无 settings 端点，配置写回能力闲置。~~ **已解决**：`server/settings.py` + `server/api/settings.py` 接上该能力，设置页覆盖全部可编辑键（`author_dir` 一并补入白名单）。
 - 无历史记录：`storage/database.py`（745 行）的 `get_aweme_history`（分页+搜索）、`get_top_authors`、job 持久化（`upsert_job/load_terminal_jobs`）全部闲置。
 - 主页下载无法选模式（post/like/mix/music/collect/collectmix）、无数量上限/增量/时间过滤入口；无直播录制入口；无热搜/搜索；无附带产物开关（封面/音乐/头像/JSON）。
 
@@ -283,7 +283,7 @@ douyin-downloader/
 | M0 结构迁移 | 目录迁移至 §6 monorepo 结构（backend/ 下移、server 分层拆分）；uv/pnpm、启动脚本、env、`.gitattributes`/`.editorconfig`、门禁基线 | 新结构下测试全绿 |
 | M1 基础设施 | StaticFiles 挂载 dist、前端工程脚手架（Vite+Vue3+组件库）、设计令牌+暗色、布局壳（侧导航/状态条/toast）、统一响应模型（§5） | 新壳跑通，旧功能迁移：下载、作品浏览、任务列表、auth 弹窗 |
 | M2 任务与持久化 | server 开 DB、job 持久化、任务操作端点（取消/重试/删除/清空）、分页筛选、SSE、任务详情抽屉、partial 状态 | 任务中心完整版 |
-| M3 设置与下载增强 | settings 端点+设置页全分组、下载页高级选项（模式/数量/增量/时间/产物）、链接探测 tag | 设置页 + 下载工作台完整版 |
+| M3 设置与下载增强 | settings 端点+设置页全分组（**已落地**：`GET/PUT /api/v1/settings` + 设置页，含环境变量接管禁用与「需重启」提示）、下载页高级选项（模式/数量/增量/时间/产物）与链接探测 tag（待办） | 设置页 + 下载工作台完整版 |
 | M4 历史与通知 | history 端点+历史页、卡片「已下载」角标（**已落地**）、server 通知派发+测试按钮（待办） | 全量能力对齐 |
 
 每阶段独立可合并；M1 完成后旧 `index.html` 即可删除（及时删死代码）。

@@ -170,6 +170,7 @@ class ConfigLoader:
         "proxy",
         "retry_times",
         "folderstyle",
+        "author_dir",
         "filename_template",
         "folder_template",
         "video_quality",
