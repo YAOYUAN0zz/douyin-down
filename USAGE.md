@@ -46,7 +46,7 @@ uv sync --project backend --extra server --inexact
 ```
 
 > `--inexact` 很重要：不加会把环境里「不属于本次 extras」的包当多余包**卸掉**，
-> 比如你装过的 playwright / whisper 会被静默清掉。
+> 比如你装过的 playwright 会被静默清掉。
 
 **可选 extra**：改 `.env.dev` 里的 `UV_EXTRAS`（逗号分隔），启动脚本会照着装。默认 `server`。
 
@@ -54,7 +54,6 @@ uv sync --project backend --extra server --inexact
 |---|---|---|
 | `server` | fastapi + uvicorn | Web UI / REST 模式（几乎总是要） |
 | `browser` | playwright | 自动抓 Cookie、超过 20 条作品的浏览器兜底翻页 |
-| `transcribe` | openai-whisper | 视频转写 |
 | `dev` | pytest + ruff + hypothesis | 改代码 / 跑测试 |
 
 装 `browser` 后还需下载浏览器内核。在 `.env.dev` 里写 `UV_EXTRAS=server,browser` 后，启动脚本会连内核一起装好；手动等价命令：
@@ -131,7 +130,7 @@ uv run --project backend douyin-dl -c config.yml \
 
 ## 4.1 改配置：优先用设置页，别手改 config.yml
 
-Web UI 的**设置**页覆盖了绝大多数配置项（下载目录、画质、并发、保存内容、命名模板、代理、评论采集、直播录制、转写、通知），改完点保存即写回 `config.yml`，用户不需要碰配置文件。
+Web UI 的**设置**页覆盖了绝大多数配置项（下载目录、画质、并发、保存内容、命名模板、代理、评论采集、直播录制、通知），改完点保存即写回 `config.yml`，用户不需要碰配置文件。
 
 - 只有**并发数（thread）**改动后需要重启服务，页面会明确提示；其余保存即生效。
 - 设置页**不管** Cookie（走「自动获取参数」）和下载链接/模式（Web UI 按 URL 提交任务，不读 `config.link`）。要用 `link`/`mode`/`number` 那套批量配置，仍走 CLI + `config.yml`。
@@ -177,7 +176,6 @@ Web UI 的**设置**页覆盖了绝大多数配置项（下载目录、画质、
 | `os error 32` / 启动时提示残留 `douyin-dl` 进程（Windows） | 上次的后端没退干净，占着 `.venv\Scripts\douyin-dl.exe`。执行 `taskkill /F /IM douyin-dl.exe` 后重试 |
 | 端口被占 / 启动失败 | `start-dev` 会自动 +1 避让并回写 `.env.dev`；看终端打印的实际端口，别用记忆中的端口 |
 | uv 报虚拟环境不匹配的告警 | 外层激活了别的 venv。`unset VIRTUAL_ENV`（PowerShell: `$env:VIRTUAL_ENV = $null`），启动脚本已内置此处理 |
-| 没生成转写文件 | `transcript.enabled` 未开，或 `OPENAI_API_KEY` 未设置 |
 | 历史/统计类接口报 503 | `config.database` 被关了，历史类端点依赖数据库 |
 | 想看详细报错 | CLI 加 `-v`；Web UI 看后端终端输出 |
 

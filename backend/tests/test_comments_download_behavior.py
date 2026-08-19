@@ -61,7 +61,6 @@ async def test_video_download_collects_comments_when_media_is_already_downloaded
         music=False,
         avatar=False,
         json=False,
-        transcript={"enabled": False},
     )
     api_client = _FakeAPIClient(
         {
@@ -116,7 +115,6 @@ async def test_user_mode_collects_comments_when_batch_item_media_is_already_down
         music=False,
         avatar=False,
         json=False,
-        transcript={"enabled": False},
     )
     aweme_data = {
         "aweme_id": aweme_id,
@@ -231,7 +229,6 @@ def _comments_enabled_config(tmp_path) -> ConfigLoader:
         music=False,
         avatar=False,
         json=False,
-        transcript={"enabled": False},
     )
     return config
 

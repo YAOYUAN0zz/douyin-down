@@ -560,49 +560,6 @@ async def test_download_aweme_assets_uses_publish_date_and_writes_manifest(tmp_p
 
 
 @pytest.mark.asyncio
-async def test_download_aweme_assets_keeps_success_when_transcript_skipped(tmp_path, monkeypatch):
-    downloader, api_client = _build_downloader(tmp_path)
-    downloader.config.update(
-        music=False,
-        cover=False,
-        avatar=False,
-        json=False,
-        folderstyle=True,
-        transcript={
-            "enabled": True,
-            "api_key_env": "OPENAI_API_KEY",
-            "api_key": "",
-            "output_dir": "",
-            "response_formats": ["txt", "json"],
-        },
-    )
-
-    async def _fake_get_session():
-        return object()
-
-    monkeypatch.setattr(api_client, "get_session", _fake_get_session)
-
-    async def _fake_download_with_retry(self, _url, _save_path, _session, **_kwargs):
-        return True
-
-    downloader._download_with_retry = _fake_download_with_retry.__get__(downloader, VideoDownloader)
-
-    aweme_data = {
-        "aweme_id": "7600224486650121527",
-        "desc": "转写缺 key 也不应影响下载",
-        "video": {"play_addr": {"url_list": ["https://example.com/video.mp4"]}},
-    }
-
-    success = await downloader._download_aweme_assets(
-        aweme_data, author_name="测试作者", mode="post"
-    )
-
-    assert success is True
-
-    await api_client.close()
-
-
-@pytest.mark.asyncio
 async def test_download_aweme_assets_video_writes_cover_avatar_and_json(tmp_path, monkeypatch):
     downloader, api_client = _build_downloader(tmp_path)
     downloader.config.update(
@@ -611,7 +568,6 @@ async def test_download_aweme_assets_video_writes_cover_avatar_and_json(tmp_path
         avatar=True,
         json=True,
         folderstyle=True,
-        transcript={"enabled": False},
     )
 
     async def _fake_get_session():
@@ -665,7 +621,6 @@ async def test_video_false_skips_mp4_but_keeps_selected_sidecars(tmp_path, monke
         avatar=False,
         json=True,
         folderstyle=True,
-        transcript={"enabled": False},
     )
 
     async def _fake_get_session():
@@ -719,7 +674,6 @@ async def test_video_download_remains_enabled_when_config_key_is_omitted(tmp_pat
         avatar=False,
         json=False,
         folderstyle=True,
-        transcript={"enabled": False},
     )
     downloader.config.config.pop("video", None)
 
@@ -809,7 +763,6 @@ async def test_download_aweme_assets_cover_falls_back_across_mirrors(tmp_path, m
         avatar=True,
         json=False,
         folderstyle=True,
-        transcript={"enabled": False},
     )
 
     async def _fake_get_session():

@@ -77,17 +77,6 @@ video_quality: highest
 progress:
   quiet_logs: true
 
-transcript:
-  enabled: false
-  model: gpt-4o-mini-transcribe
-  output_dir: ""
-  response_formats:
-    - txt
-    - json
-  api_url: https://api.openai.com/v1/audio/transcriptions
-  api_key_env: OPENAI_API_KEY
-  api_key: ""
-
 browser_fallback:
   enabled: true
   headless: false

@@ -19,7 +19,7 @@ Get-Content .env.dev | Where-Object { $_ -match "^\s*[^#].*=" } | ForEach-Object
 
 # ---- 依赖自动补齐 ----
 # uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
-# --inexact：只补不删，避免把用户额外装的 playwright / whisper 当「多余包」卸掉。
+# --inexact：只补不删，避免把用户额外装的 playwright 当「多余包」卸掉。
 $uvExtras = if ($envMap["UV_EXTRAS"]) { $envMap["UV_EXTRAS"] } else { "server" }
 $extraArgs = @()
 foreach ($extra in ($uvExtras -split ",")) {

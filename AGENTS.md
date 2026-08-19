@@ -6,7 +6,7 @@
 > This file covers *developing* it: architecture, patterns, and test requirements.
 
 ## Purpose
-A Python-based Douyin (TikTok China) batch downloader that fetches videos, galleries, music, and user content without watermarks. Supports multiple download modes (user posts, likes, mixes, music), concurrent downloads with rate limiting, cookie-based authentication, and optional Whisper transcription. YAML-configured, usable either as a CLI (`douyin-dl`) or as a REST API + Vue 3 web console (`douyin-dl --serve`).
+A Python-based Douyin (TikTok China) batch downloader that fetches videos, galleries, music, and user content without watermarks. Supports multiple download modes (user posts, likes, mixes, music), concurrent downloads with rate limiting, and cookie-based authentication. YAML-configured, usable either as a CLI (`douyin-dl`) or as a REST API + Vue 3 web console (`douyin-dl --serve`).
 
 ## Repository Layout (monorepo)
 
@@ -71,6 +71,5 @@ A Python-based Douyin (TikTok China) batch downloader that fetches videos, galle
 
 ### Optional
 - `playwright` — browser automation for cookie fetching
-- `openai-whisper` — audio transcription
 
 <!-- MANUAL: -->

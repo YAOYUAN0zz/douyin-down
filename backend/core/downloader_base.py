@@ -14,7 +14,6 @@ from config import ConfigLoader
 from control import QueueManager, RateLimiter, RetryHandler
 from core.api_client import DouyinAPIClient
 from core.metadata import extract_author_sec_uid, extract_video_cover_urls
-from core.transcript_manager import TranscriptManager
 from storage import Database, FileManager, MetadataHandler
 from storage.database import order_cover_mirrors
 from utils.logger import setup_logger
@@ -94,7 +93,6 @@ class BaseDownloader(ABC):
         # written onto each aweme row for the History job cross-filter.
         self.job_id = job_id
         self.metadata_handler = MetadataHandler()
-        self.transcript_manager = TranscriptManager(self.config, self.file_manager, self.database)
         self._local_aweme_ids: Optional[set[str]] = None
         # 延迟到事件循环内创建（3.9 上 asyncio.Lock() 在无运行循环时创建
         # 会绑定错误的 loop）。
@@ -784,24 +782,6 @@ class BaseDownloader(ABC):
         await self.metadata_handler.append_download_manifest(
             self.file_manager.base_path, manifest_record
         )
-
-        if media_type == "video" and video_path is not None:
-            transcript_result = await self.transcript_manager.process_video(
-                video_path, aweme_id=aweme_id
-            )
-            transcript_status = transcript_result.get("status")
-            if transcript_status == "skipped":
-                logger.info(
-                    "Transcript skipped for aweme %s: %s",
-                    aweme_id,
-                    transcript_result.get("reason", "unknown"),
-                )
-            elif transcript_status == "failed":
-                logger.warning(
-                    "Transcript failed for aweme %s: %s",
-                    aweme_id,
-                    transcript_result.get("error", "unknown"),
-                )
 
         if primary_media_downloaded:
             self._mark_local_aweme_downloaded(aweme_id)

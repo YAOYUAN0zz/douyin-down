@@ -109,7 +109,7 @@ def _sub_model(
     value: Any,
     fields: Dict[str, Callable[[Any], Any]],
 ) -> Dict[str, Any]:
-    """校验嵌套配置段（comments/live/transcript/notifications）。
+    """校验嵌套配置段（comments/live/notifications）。
 
     只接受 fields 中声明的子键；未提供的子键保持原值不动（ConfigLoader.update
     对 dict 做的是浅合并），因此前端可以只提交改动的那部分。
@@ -202,18 +202,6 @@ _VALIDATORS: Dict[str, Callable[[Any], Any]] = {
             ),
         },
     ),
-    "transcript": lambda v: _sub_model(
-        "transcript",
-        v,
-        {
-            "enabled": lambda x: _as_bool("transcript.enabled", x),
-            "model": lambda x: _as_str("transcript.model", x),
-            "output_dir": lambda x: _as_str("transcript.output_dir", x),
-            "api_url": lambda x: _as_str("transcript.api_url", x),
-            "api_key_env": lambda x: _as_str("transcript.api_key_env", x),
-            "api_key": lambda x: _as_str("transcript.api_key", x),
-        },
-    ),
     "notifications": lambda v: _sub_model(
         "notifications",
         v,
@@ -228,35 +216,14 @@ _VALIDATORS: Dict[str, Callable[[Any], Any]] = {
 
 EDITABLE_KEYS: Tuple[str, ...] = tuple(_VALIDATORS)
 
-# 前端不该看到明文密钥：读取时打码，写入时若原样回传则视为「未改动」。
-_SECRET_PATHS = (("transcript", "api_key"),)
-_SECRET_MASK = "********"
-
-
-def _mask_secrets(snapshot: Dict[str, Any]) -> Dict[str, Any]:
-    for section, key in _SECRET_PATHS:
-        block = snapshot.get(section)
-        if isinstance(block, dict) and block.get(key):
-            block[key] = _SECRET_MASK
-    return snapshot
-
-
-def _drop_unchanged_secrets(patch: Dict[str, Any]) -> None:
-    """掩码值原样回传 = 用户没动这个字段，丢弃以免把 '********' 存成真密钥。"""
-    for section, key in _SECRET_PATHS:
-        block = patch.get(section)
-        if isinstance(block, dict) and block.get(key) == _SECRET_MASK:
-            del block[key]
-
-
 def read_settings(config: Any) -> Dict[str, Any]:
-    """当前生效配置的快照（仅可编辑键），密钥字段已打码。"""
+    """当前生效配置的快照（仅可编辑键）。"""
     values: Dict[str, Any] = {}
     for key in EDITABLE_KEYS:
         value = config.get(key)
         values[key] = deepcopy(value) if isinstance(value, (dict, list)) else value
     return {
-        "values": _mask_secrets(values),
+        "values": values,
         "config_path": str(config.config_path) if getattr(config, "config_path", None) else None,
         "requires_restart_keys": list(REQUIRES_RESTART),
         "env_overrides": _active_env_overrides(),
@@ -308,12 +275,6 @@ def update_settings(config: Any, deps: Any, patch: Dict[str, Any]) -> Dict[str, 
             f"{detail} 由环境变量接管，改动会在重启后被覆盖；"
             "请改环境变量本身，或取消设置后再回来改。"
         )
-
-    _drop_unchanged_secrets(patch)
-    # 掩码剔除后可能只剩空的嵌套段，去掉以免 update 写入空 dict
-    patch = {k: v for k, v in patch.items() if not (isinstance(v, dict) and not v)}
-    if not patch:
-        return {**read_settings(config), "saved": False, "restart_required": []}
 
     cleaned = {key: _VALIDATORS[key](value) for key, value in patch.items()}
 

@@ -153,7 +153,7 @@ async def download_url(
             safe_config = {
                 k: v
                 for k, v in config.config.items()
-                if k not in ("cookies", "cookie", "transcript")
+                if k not in ("cookies", "cookie")
             }
             await database.add_history(
                 {

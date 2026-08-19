@@ -43,51 +43,6 @@ async def test_database_aweme_lifecycle(tmp_path):
     await database.close()
 
 
-@pytest.mark.asyncio
-async def test_database_transcript_job_upsert(tmp_path):
-    db_path = tmp_path / "test.db"
-    database = Database(str(db_path))
-    await database.initialize()
-
-    await database.upsert_transcript_job(
-        {
-            "aweme_id": "123",
-            "video_path": "/tmp/demo.mp4",
-            "transcript_dir": "/tmp",
-            "text_path": "/tmp/demo.transcript.txt",
-            "json_path": "/tmp/demo.transcript.json",
-            "model": "gpt-4o-mini-transcribe",
-            "status": "skipped",
-            "skip_reason": "missing_api_key",
-            "error_message": None,
-        }
-    )
-
-    row = await database.get_transcript_job("123")
-    assert row is not None
-    assert row["status"] == "skipped"
-    assert row["skip_reason"] == "missing_api_key"
-
-    await database.upsert_transcript_job(
-        {
-            "aweme_id": "123",
-            "video_path": "/tmp/demo.mp4",
-            "transcript_dir": "/tmp",
-            "text_path": "/tmp/demo.transcript.txt",
-            "json_path": "/tmp/demo.transcript.json",
-            "model": "gpt-4o-mini-transcribe",
-            "status": "success",
-            "skip_reason": None,
-            "error_message": None,
-        }
-    )
-
-    row = await database.get_transcript_job("123")
-    assert row["status"] == "success"
-    assert row["skip_reason"] is None
-
-    await database.close()
-
 
 @pytest.mark.asyncio
 async def test_database_initialize_sets_wal_journal_mode(tmp_path):

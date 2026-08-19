@@ -50,14 +50,6 @@ def test_get_settings_returns_editable_keys(tmp_path):
     assert data["requires_restart_keys"] == ["thread"]
 
 
-def test_get_settings_masks_api_key(tmp_path):
-    app, _ = _build(tmp_path, transcript={"enabled": False, "api_key": "sk-secret-value"})
-    with TestClient(app) as client:
-        data = client.get("/api/v1/settings").json()["data"]
-
-    assert data["values"]["transcript"]["api_key"] == "********"
-
-
 # ---------------- 写入与落盘 ----------------
 
 
@@ -154,31 +146,6 @@ def test_unchanged_thread_does_not_report_restart(tmp_path):
     assert data["restart_required"] == []
 
 
-# ---------------- 密钥处理 ----------------
-
-
-def test_masked_api_key_is_not_written_back(tmp_path):
-    """前端把打码值原样回传时，真密钥不能被覆盖成 '********'。"""
-    app, config_path = _build(
-        tmp_path, transcript={"enabled": False, "api_key": "sk-real-key"}
-    )
-    with TestClient(app) as client:
-        _put(client, {"transcript": {"api_key": "********", "enabled": True}})
-
-    written = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    assert written["transcript"]["api_key"] == "sk-real-key"
-    assert written["transcript"]["enabled"] is True
-
-
-def test_new_api_key_is_written(tmp_path):
-    app, config_path = _build(tmp_path, transcript={"api_key": "sk-old"})
-    with TestClient(app) as client:
-        _put(client, {"transcript": {"api_key": "sk-new"}})
-
-    written = yaml.safe_load(config_path.read_text(encoding="utf-8"))
-    assert written["transcript"]["api_key"] == "sk-new"
-
-
 # ---------------- 校验与白名单 ----------------
 
 
@@ -216,9 +183,15 @@ def test_put_settings_rejects_invalid_values(tmp_path, payload, hint):
     assert body["data"] is None
 
 
-@pytest.mark.parametrize("key", ["cookies", "link", "database", "database_path", "mode"])
+@pytest.mark.parametrize(
+    "key", ["cookies", "link", "database", "database_path", "mode", "transcript"]
+)
 def test_put_settings_rejects_non_editable_keys(tmp_path, key):
-    """cookies/link 等运行时或敏感键不得经设置页写入。"""
+    """cookies/link 等运行时或敏感键不得经设置页写入。
+
+    transcript 在此列是因为转写功能已整体移除——若它重新出现在白名单里，
+    这条测试会立刻失败。
+    """
     app, _ = _build(tmp_path)
     with TestClient(app) as client:
         resp = _put(client, {key: "whatever"})

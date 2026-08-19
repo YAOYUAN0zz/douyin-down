@@ -33,7 +33,6 @@ logs/
 
 # Runtime output
 Downloaded/
-Transcripts/
 dy_downloader.db
 *.db
 *.db-wal

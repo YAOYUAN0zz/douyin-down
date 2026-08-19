@@ -25,7 +25,6 @@ Pytest test suite with 23 test modules covering all major components. Uses `pyte
 | `test_progress_display.py` | Rich progress display |
 | `test_rate_limiter.py` | Rate limiting behavior |
 | `test_retry_handler.py` | Retry with backoff |
-| `test_transcript_manager.py` | Whisper transcription management |
 | `test_url_parser.py` | URL classification |
 | `test_user_downloader.py` | User content download orchestration |
 | `test_user_downloader_modes.py` | User downloader mode integration |

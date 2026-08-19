@@ -86,7 +86,6 @@ def _build_video_downloader(
         avatar=False,
         json=False,
         folderstyle=True,
-        transcript={"enabled": False},
     )
     file_manager = FileManager(str(tmp_path))
     cookie_manager = CookieManager(str(tmp_path / ".cookies.json"))

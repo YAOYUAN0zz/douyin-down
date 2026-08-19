@@ -36,7 +36,6 @@ A practical Douyin downloader supporting videos, image-notes, collections, music
 | **Web UI + auto param fetch** | Open `http://host:port/` after `--serve`; one-click browser login auto-captures cookies/msToken |
 | **Notification push** | Bark / Telegram / Webhook on download completion |
 | Extra assets | Cover, music, avatar, JSON metadata |
-| Video transcription | Optional, using OpenAI Transcriptions API |
 | Concurrent downloads | Configurable concurrency, default 5 |
 | Retry with backoff | Exponential backoff (1s, 2s, 5s) |
 | Rate limiting | Default 2 req/s |
@@ -87,7 +86,7 @@ uv sync --project backend --extra server --inexact
 ```
 
 > `--inexact` means "add, never remove". Without it, uv uninstalls anything outside the
-> requested extras — including playwright/whisper you installed earlier.
+> requested extras — including playwright you installed earlier.
 
 ### 3) Copy config file
 
@@ -148,14 +147,6 @@ browser_fallback:
   idle_rounds: 8
   wait_timeout_seconds: 600
 
-transcript:
-  enabled: false
-  model: gpt-4o-mini-transcribe
-  output_dir: ""
-  response_formats: ["txt", "json"]
-  api_url: https://api.openai.com/v1/audio/transcriptions
-  api_key_env: OPENAI_API_KEY
-  api_key: ""
 ```
 
 ## Usage
@@ -366,7 +357,7 @@ After `--serve`, open `http://127.0.0.1:8000/` in a browser:
 - **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
 - **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
 - **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
-- **Edit settings in the UI:** download path, quality, concurrency, what to save (video/cover/music/avatar/JSON), naming templates, proxy, comment collection, live recording, transcription, and completion notifications are all editable on the **Settings** page and written straight back to `config.yml` — **no hand-editing required**. Keys you authored manually but the page doesn't cover are preserved. Everything takes effect on save except concurrency, which needs a server restart (the page says so).
+- **Edit settings in the UI:** download path, quality, concurrency, what to save (video/cover/music/avatar/JSON), naming templates, proxy, comment collection, live recording, and completion notifications are all editable on the **Settings** page and written straight back to `config.yml` — **no hand-editing required**. Keys you authored manually but the page doesn't cover are preserved. Everything takes effect on save except concurrency, which needs a server restart (the page says so).
 
 Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
 
@@ -410,39 +401,6 @@ number:
   post: 0
 ```
 
-## Optional Feature: Video Transcription (`transcript`)
-
-Current behavior applies to **video items only** (image-note items do not generate transcripts).
-
-### 1) Enable in config
-
-```yaml
-transcript:
-  enabled: true
-  model: gpt-4o-mini-transcribe
-  output_dir: ""        # empty: same folder as video; non-empty: mirrored to target dir
-  response_formats:
-    - txt
-    - json
-  api_key_env: OPENAI_API_KEY
-  api_key: ""           # can be set directly, or via environment variable
-```
-
-Recommended to provide key through environment variable:
-
-```bash
-export OPENAI_API_KEY="sk-xxxx"
-```
-
-### 2) Output files
-
-When enabled, it generates:
-
-- `xxx.transcript.txt`
-- `xxx.transcript.json`
-
-If `database: true`, job status is also recorded in SQLite table `transcript_job` (`success/failed/skipped`).
-
 ## Testing
 
 Recommended:
@@ -468,7 +426,6 @@ pytest -q
 | `folderstyle` | Create per-item subdirectories |
 | `browser_fallback.*` | Browser fallback for `post` when pagination is restricted |
 | `progress.quiet_logs` | Quiet logs during progress stage |
-| `transcript.*` | Optional transcription after video download |
 | `comments.*` | Per-aweme comments collection (opt-in) |
 | `live.*` | Live stream recording options (max_duration_seconds / chunk_size / idle_timeout_seconds) |
 | `notifications.*` | Bark/Telegram/Webhook push on completion |
@@ -501,9 +458,7 @@ workspace/
         │       ├── ..._music.mp3
         │       ├── ..._data.json
         │       ├── ..._avatar.jpg
-        │       ├── ..._comments.json    # when comments.enabled
-        │       ├── ...transcript.txt
-        │       └── ...transcript.json
+        │       └── ..._comments.json    # when comments.enabled
         ├── like/
         │   └── ...
         ├── mix/
@@ -573,16 +528,7 @@ Run:
 uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
-### 4) Why are transcript files not generated?
-
-Check in order:
-
-- whether `transcript.enabled` is `true`
-- whether downloaded items are videos (image-notes are not transcribed)
-- whether `OPENAI_API_KEY` (or `transcript.api_key`) is valid
-- whether `response_formats` includes `txt` or `json`
-
-### 5) How to view download history?
+### 4) How to view download history?
 
 ```bash
 sqlite3 dy_downloader.db "SELECT aweme_id, title, author_name, datetime(download_time, 'unixepoch', 'localtime') FROM aweme ORDER BY download_time DESC LIMIT 20;"

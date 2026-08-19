@@ -195,15 +195,6 @@ export interface SettingsValues {
     chunk_size: number;
     idle_timeout_seconds: number;
   };
-  transcript: {
-    enabled: boolean;
-    model: string;
-    output_dir: string;
-    api_url: string;
-    api_key_env: string;
-    /** 读取时为掩码 '********'；原样回传表示不修改 */
-    api_key: string;
-  };
   notifications: {
     enabled: boolean;
     on_success: boolean;

@@ -1,9 +1,8 @@
 <script setup lang="ts">
 /** 设置页：在 UI 里改配置，免去用户手改 config.yml。
  *
- * 只提交改动过的键（后端 PUT /settings 支持局部更新），因此：
- * - 不会把用户手写在 config.yml 里、UI 未覆盖的键冲掉；
- * - transcript.api_key 读回来是掩码，未编辑就不会进 patch，真密钥不被覆盖。
+ * 只提交改动过的键（后端 PUT /settings 支持局部更新），因此不会把用户手写在
+ * config.yml 里、UI 未覆盖的键冲掉。
  */
 import {
   NAlert,
@@ -432,61 +431,6 @@ function onProviderTypeChange(provider: NotifyProvider, type: NotifyProvider["ty
                 :max="1048576"
                 :step="1024"
                 class="field-number"
-              />
-            </label>
-          </div>
-        </n-collapse-item>
-
-        <n-collapse-item title="视频转写" name="transcript">
-          <template #header-extra>
-            <n-tag v-if="draft.transcript.enabled" size="small" type="success" :bordered="false">
-              已开启
-            </n-tag>
-          </template>
-          <div class="field-grid">
-            <div class="field">
-              <span class="field-label">启用转写</span>
-              <n-switch v-model:value="draft.transcript.enabled" size="small" />
-              <span class="field-hint">下载后调用转写接口生成字幕文本</span>
-            </div>
-            <label class="field">
-              <span class="field-label">模型</span>
-              <n-input
-                v-model:value="draft.transcript.model"
-                :disabled="!draft.transcript.enabled"
-              />
-            </label>
-            <label class="field">
-              <span class="field-label">接口地址</span>
-              <n-input
-                v-model:value="draft.transcript.api_url"
-                :disabled="!draft.transcript.enabled"
-              />
-            </label>
-            <label class="field">
-              <span class="field-label">API Key</span>
-              <n-input
-                v-model:value="draft.transcript.api_key"
-                type="password"
-                show-password-on="click"
-                :disabled="!draft.transcript.enabled"
-              />
-              <span class="field-hint">留着掩码不动表示不修改；优先使用下方环境变量</span>
-            </label>
-            <label class="field">
-              <span class="field-label">API Key 环境变量名</span>
-              <n-input
-                v-model:value="draft.transcript.api_key_env"
-                :disabled="!draft.transcript.enabled"
-              />
-              <span class="field-hint">推荐用环境变量而非明文存 Key</span>
-            </label>
-            <label class="field">
-              <span class="field-label">输出目录</span>
-              <n-input
-                v-model:value="draft.transcript.output_dir"
-                placeholder="留空则与视频同目录"
-                :disabled="!draft.transcript.enabled"
               />
             </label>
           </div>

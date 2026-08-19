@@ -25,7 +25,7 @@ set +a
 
 # ---- 依赖自动补齐 ----
 # uv sync / pnpm install 都是幂等的：已装齐时秒回，缺了才装，故每次启动都跑。
-# --inexact：只补不删，避免把用户额外装的 playwright / whisper 当「多余包」卸掉。
+# --inexact：只补不删，避免把用户额外装的 playwright 当「多余包」卸掉。
 # UV_EXTRAS 在 .env.dev 里配置，默认 server（Web UI 所需的 fastapi+uvicorn）。
 UV_EXTRAS="${UV_EXTRAS:-server}"
 EXTRA_ARGS=""

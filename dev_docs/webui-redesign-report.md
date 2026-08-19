@@ -15,7 +15,7 @@
 
 ## 1. 背景与目标
 
-当前 Web UI 是 `--serve` 模式下的单文件页面（`server/webui/index.html`，589 行，纯原生 HTML/CSS/JS），只覆盖了后端能力的一小部分：单链接下载、作品列表预览+批量下载、cookie 自动获取、任务进度表。而后端（CLI 同款核心）实际具备主页多模式批量、增量下载、时间过滤、直播录制、评论采集、热搜/搜索、转写、通知推送、SQLite 历史与去重等大量能力，均未在 UI 暴露。
+当前 Web UI 是 `--serve` 模式下的单文件页面（`server/webui/index.html`，589 行，纯原生 HTML/CSS/JS），只覆盖了后端能力的一小部分：单链接下载、作品列表预览+批量下载、cookie 自动获取、任务进度表。而后端（CLI 同款核心）实际具备主页多模式批量、增量下载、时间过滤、直播录制、评论采集、热搜/搜索、通知推送、SQLite 历史与去重等大量能力，均未在 UI 暴露。
 
 **重设计目标**：
 
@@ -75,7 +75,7 @@
 | 直播录制 live / live_replay | `core/downloader_factory.py:59-62` | 无入口、无停止 |
 | 热搜榜 / 关键词搜索 | `core/discovery.py` | 无 API 无 UI |
 | 评论采集 comments.* | `core/comments_collector.py` | 无 |
-| 转写 transcript.* | `core/transcript_manager.py` | 无 |
+| ~~转写 transcript.*~~ | ~~`core/transcript_manager.py`~~ | **功能已整体移除**（用户决定，聚焦登录参数获取与下载） |
 | 通知推送 bark/telegram/webhook | `utils/notifier.py` | server 路径完全不派发 |
 | SQLite 历史/去重/job 持久化 | `storage/database.py` | server 关闭 DB |
 | 代理、并发、限速、重试、浏览器兜底 | config | 无 |
@@ -183,7 +183,7 @@
 | 产物 | video/music/cover/avatar/json 复选组、download_pinned、homepage_screenshot 开关 |
 | 命名 | filename_template / folder_template（输入框 + 可插入变量 chips + 实时预览）、author_dir 单选（nickname/sec_uid/nickname_uid）、folderstyle 开关 |
 | 评论 | enabled 开关、include_replies、max_comments、page_size |
-| 转写 | enabled、model、api_url、api_key（密码框，回显打码）、输出格式复选 |
+| ~~转写~~ | ~~enabled、model、api_url、api_key、输出格式复选~~ —— 功能已移除，设置页不含此分组 |
 | 通知 | enabled + on_success/on_failure 开关、providers 列表编辑（bark/telegram/webhook 三种模板表单）、`[发送测试通知]` |
 | 账号 | cookie 状态明细、`[自动获取参数]`、`[清除登录]` |
 
@@ -299,6 +299,6 @@ douyin-downloader/
 
 ## 附录 A：配置项全量清单（设置页映射依据）
 
-见 `config/default_config.py`。UI 可写回白名单（`config_loader.py:159-180`）：path、thread、rate_limit、video、cover、music、avatar、json、download_pinned、homepage_screenshot、proxy、retry_times、folderstyle、filename_template、folder_template、video_quality、comments、live、transcript、notifications。白名单之外的 `mode/number/increase/start_time/end_time` 建议作为 **per-job 参数**随请求下发（§5 P1），不写回配置文件。
+见 `config/default_config.py`。UI 可写回白名单（`config_loader.py` 的 `_UI_PERSISTED_KEYS`）：path、thread、rate_limit、video、cover、music、avatar、json、download_pinned、homepage_screenshot、proxy、retry_times、folderstyle、author_dir、filename_template、folder_template、video_quality、comments、live、notifications（transcript 已随转写功能移除）。白名单之外的 `mode/number/increase/start_time/end_time` 建议作为 **per-job 参数**随请求下发（§5 P1），不写回配置文件。
 
 环境变量覆盖：`DOUYIN_COOKIE`、`DOUYIN_PATH`、`DOUYIN_THREAD`、`DOUYIN_PROXY`（设置页对被 env 覆盖的项显示「由环境变量接管」并禁用编辑）。
