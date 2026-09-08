@@ -31,6 +31,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
     });
   } catch (err) {
+    // 调用方通过 AbortController 主动取消时，不伪装成网络故障。
+    if (init?.signal?.aborted || (err as Error).name === "AbortError") throw err;
     throw new ApiClientError(-1, 0, `无法连接服务器：${(err as Error).message}`);
   }
 
@@ -54,8 +56,9 @@ export function apiGet<T>(path: string): Promise<T> {
   return request<T>(path);
 }
 
-export function apiPost<T>(path: string, payload?: unknown): Promise<T> {
+export function apiPost<T>(path: string, payload?: unknown, init?: RequestInit): Promise<T> {
   return request<T>(path, {
+    ...init,
     method: "POST",
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });

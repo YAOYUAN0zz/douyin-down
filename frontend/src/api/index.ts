@@ -39,8 +39,8 @@ export const api = {
   downloadBatch(urls: string[], videoQuality?: string): Promise<{ jobs: SubmittedJob[] }> {
     return apiPost("/api/v1/download/batch", { urls, video_quality: videoQuality || null });
   },
-  worksList(url: string, cursor = 0, count = 20): Promise<WorksPage> {
-    return apiPost("/api/v1/works/list", { url, cursor, count });
+  worksList(url: string, cursor = 0, count = 20, signal?: AbortSignal): Promise<WorksPage> {
+    return apiPost("/api/v1/works/list", { url, cursor, count }, { signal });
   },
   jobs(): Promise<{ jobs: JobDto[]; total: number }> {
     return apiGet("/api/v1/jobs");

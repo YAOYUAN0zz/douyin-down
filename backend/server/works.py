@@ -206,7 +206,15 @@ async def list_works(
             if item is None:
                 raise WorksListError("获取作品详情失败，作品可能已删除或不可见", 502)
             await _probe_original_sizes([item], api_client, proxy)
-            return {"source_type": url_type, "items": [item], "has_more": False, "cursor": 0}
+            return {
+                "source_type": url_type,
+                "items": [item],
+                "has_more": False,
+                "cursor": 0,
+                "pagination_status": "complete",
+                "pagination_reason": None,
+                "reported_total": None,
+            }
 
         if url_type not in _PAGED_TYPES:
             raise WorksListError(f"该链接类型（{url_type}）不支持作品列表预览")
@@ -229,13 +237,44 @@ async def list_works(
             status_code = page.get("status_code")
             if status_code:
                 raise WorksListError(f"上游接口返回异常（status_code={status_code}）", 502)
+            if url_type == "user" and not page.get("raw"):
+                # 请求层会将 403 / 空 200 等拦截为标准空分页；作者主页的空首屏
+                # 并不等于没有作品，否则 UI 会把风控截断误写成“已加载全部”。
+                raise WorksListError("上游未返回作品列表，可能触发了反爬限制或登录态失效", 502)
+            if page.get("raw"):
+                raise WorksListError("上游接口未返回作品列表，可能触发了反爬限制", 502)
 
         await _probe_original_sizes(items, api_client, proxy)
+        has_more = bool(page.get("has_more"))
+        next_cursor = int(page.get("max_cursor") or 0)
+        pagination_status = "more_available" if has_more else "complete"
+        pagination_reason = None
+        reported_total = None
+
+        # 上游声称可翻页却没有推进游标，或满页后提前结束时，不能把当前页误导为全部作品。
+        if has_more and next_cursor == cursor:
+            pagination_status = "restricted"
+            pagination_reason = "cursor_stalled"
+        elif url_type == "user" and not has_more and len(raw_items) >= count:
+            pagination_status = "restricted"
+            pagination_reason = "upstream_ended_early"
+            user_info = await api_client.get_user_info(parsed["sec_uid"])
+            if isinstance(user_info, Mapping):
+                try:
+                    profile_count = int(user_info.get("aweme_count") or 0)
+                except (TypeError, ValueError):
+                    profile_count = 0
+                if profile_count > len(raw_items):
+                    reported_total = profile_count
+
         return {
             "source_type": url_type,
             "items": items,
-            "has_more": bool(page.get("has_more")),
-            "cursor": int(page.get("max_cursor") or 0),
+            "has_more": has_more,
+            "cursor": next_cursor,
+            "pagination_status": pagination_status,
+            "pagination_reason": pagination_reason,
+            "reported_total": reported_total,
         }
 
 
