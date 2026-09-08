@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { NButton, NCheckbox } from "naive-ui";
 import type { WorkItem } from "../api/types";
-import { formatBytes, formatCount, formatDuration, formatUnixDate } from "../shared/format";
+import {
+  formatBytes,
+  formatCount,
+  formatDuration,
+  formatKbps,
+  formatUnixDate,
+  formatUnixDateTime,
+} from "../shared/format";
 
 const MAX_VISIBLE_TIERS = 2;
 const expanded = ref(false);
+const metaOpen = ref(false);
 
-defineProps<{
+const props = defineProps<{
   item: WorkItem;
   selected: boolean;
 }>();
@@ -31,6 +39,43 @@ function tierParam(label: string): string {
   }
   return "360p";
 }
+
+/** 元数据明细行；值为空的条目不出现，避免展开后一堆「-」 */
+const metaRows = computed<Array<{ label: string; value: string }>>(() => {
+  const it = props.item;
+  const top = it.qualities[0];
+  const rows: Array<{ label: string; value: string }> = [];
+  const push = (label: string, value: string | number | undefined | null) => {
+    const text = String(value ?? "").trim();
+    if (text) rows.push({ label, value: text });
+  };
+
+  push("作品 ID", it.aweme_id);
+  push("类型", it.media_type === "images" ? `图集 · ${it.image_count} 张` : "视频");
+  if (it.media_type === "video" && it.duration_seconds) {
+    push("时长", formatDuration(it.duration_seconds));
+  }
+  push("发布时间", formatUnixDateTime(it.create_time));
+  if (top) {
+    push("分辨率", top.width && top.height ? `${top.width}×${top.height}` : "");
+    push("帧率", top.fps ? `${top.fps} fps` : "");
+    push("码率", formatKbps(top.bit_rate));
+    push("封装格式", top.format);
+  }
+  if (it.size_bytes) push("最高档大小", formatBytes(it.size_bytes));
+  if (it.original_size_bytes) push("原画大小", formatBytes(it.original_size_bytes));
+  // 抖音对部分作品不返回播放/收藏等计数，0 一律省略而不是显示「0」
+  const stat = (label: string, value: number) => {
+    if (value > 0) push(label, formatCount(value));
+  };
+  stat("播放", it.stats.play_count);
+  stat("点赞", it.stats.digg_count);
+  stat("评论", it.stats.comment_count);
+  stat("收藏", it.stats.collect_count);
+  stat("分享", it.stats.share_count);
+  push("音乐", it.music_title);
+  return rows;
+});
 </script>
 
 <template>
@@ -88,6 +133,24 @@ function tierParam(label: string): string {
         <span>💬 {{ formatCount(item.stats.comment_count) }}</span>
       </div>
 
+      <!-- 元数据：默认折叠，展开后按 label/value 平铺 -->
+      <div class="meta-block">
+        <button type="button" class="meta-toggle" @click.stop="metaOpen = !metaOpen">
+          {{ metaOpen ? "▾" : "▸" }} 元数据
+        </button>
+        <template v-if="metaOpen">
+          <dl class="meta-list">
+            <template v-for="row in metaRows" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd>{{ row.value }}</dd>
+            </template>
+          </dl>
+          <div v-if="item.tags.length" class="meta-tags">
+            <span v-for="tag in item.tags" :key="tag" class="meta-tag">#{{ tag }}</span>
+          </div>
+        </template>
+      </div>
+
       <div v-if="item.qualities.length" class="tiers">
         <button
           type="button"
@@ -102,9 +165,7 @@ function tierParam(label: string): string {
           <span class="tier-dl">⬇</span>
         </button>
         <button
-          v-for="q in expanded
-            ? item.qualities
-            : item.qualities.slice(0, MAX_VISIBLE_TIERS)"
+          v-for="q in expanded ? item.qualities : item.qualities.slice(0, MAX_VISIBLE_TIERS)"
           :key="q.gear_name"
           type="button"
           class="tier"
@@ -239,6 +300,54 @@ function tierParam(label: string): string {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 元数据折叠区 */
+.meta-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dd-space-2);
+}
+.meta-toggle {
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: var(--dd-text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.meta-toggle:hover {
+  color: #2080f0;
+}
+.meta-list {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--dd-space-2);
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.meta-list dt {
+  color: var(--dd-text-secondary);
+  white-space: nowrap;
+}
+.meta-list dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.meta-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dd-space-1);
+}
+.meta-tag {
+  border-radius: 4px;
+  background: rgba(32, 128, 240, 0.1);
+  color: #2080f0;
+  font-size: 11px;
+  padding: 1px 6px;
 }
 
 .tiers {
