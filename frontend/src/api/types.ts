@@ -66,6 +66,7 @@ export interface WorkItem {
   create_time: number;
   download_url: string;
   size_bytes: number;
+  original_size_bytes: number;
   stats: {
     digg_count: number;
     comment_count: number;

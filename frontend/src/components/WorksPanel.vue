@@ -133,7 +133,7 @@ const SOURCE_LABEL: Record<string, string> = {
 </script>
 
 <template>
-  <n-space vertical size="large">
+  <n-space vertical size="large" class="works-panel">
     <n-empty v-if="error" :description="error">
       <template #extra>
         <n-button size="small" @click="fetchList(true)">重试</n-button>
@@ -187,7 +187,7 @@ const SOURCE_LABEL: Record<string, string> = {
     </template>
 
     <div v-else-if="loading" class="works-grid">
-      <n-skeleton v-for="i in 8" :key="i" height="264px" :sharp="false" />
+      <n-skeleton v-for="i in 8" :key="i" height="300px" :sharp="false" />
     </div>
 
     <n-empty v-else description="未获取到作品，请检查链接或登录状态" />
@@ -195,15 +195,13 @@ const SOURCE_LABEL: Record<string, string> = {
 </template>
 
 <style scoped>
+.works-panel {
+  container: works-panel / inline-size;
+  min-width: 0;
+}
 .works-grid {
   display: grid;
-  /* 单卡最小宽度跟随封面（200px）+ 信息区可读宽度 */
-  grid-template-columns: repeat(auto-fill, minmax(480px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
   gap: var(--dd-space-4);
-}
-@media (max-width: 560px) {
-  .works-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

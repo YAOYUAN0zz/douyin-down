@@ -5,11 +5,18 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any, Dict, List, Mapping, Optional
+
+import aiohttp
 
 from core import DouyinAPIClient, URLParser
 from core.metadata import extract_video_cover_urls
+from utils.paid_content import is_paid_content
 from utils.validators import is_short_url, normalize_short_url
+
+logger = logging.getLogger(__name__)
 
 MAX_PAGE_COUNT = 50
 DEFAULT_PAGE_COUNT = 20
@@ -150,12 +157,15 @@ def normalize_aweme(aweme: Any) -> Optional[Dict[str, Any]]:
         "cover": cover,
         "duration_seconds": duration_seconds,
         "size_bytes": size_bytes,
+        "original_size_bytes": 0,
         "create_time": create_time,
         "author": author_name,
         "stats": stats,
         "tags": tags,
         "music_title": music_title,
         "download_url": f"https://www.douyin.com/{path_kind}/{aweme_id}",
+        "_raw_video": video if not is_images else None,
+        "_raw_aweme": aweme if not is_images else None,
     }
 
 
@@ -195,6 +205,7 @@ async def list_works(
             item = normalize_aweme(detail)
             if item is None:
                 raise WorksListError("获取作品详情失败，作品可能已删除或不可见", 502)
+            await _probe_original_sizes([item], api_client, proxy)
             return {"source_type": url_type, "items": [item], "has_more": False, "cursor": 0}
 
         if url_type not in _PAGED_TYPES:
@@ -219,9 +230,97 @@ async def list_works(
             if status_code:
                 raise WorksListError(f"上游接口返回异常（status_code={status_code}）", 502)
 
+        await _probe_original_sizes(items, api_client, proxy)
         return {
             "source_type": url_type,
             "items": items,
             "has_more": bool(page.get("has_more")),
             "cursor": int(page.get("max_cursor") or 0),
         }
+
+
+_ORIGINAL_PROBE_TIMEOUT = 8
+
+
+async def _probe_one_original(
+    item: Dict[str, Any],
+    api_client: DouyinAPIClient,
+    proxy: Optional[str],
+) -> None:
+    """探测单个视频作品的原画大小，写入 item["original_size_bytes"]。"""
+    video = item.pop("_raw_video", None)
+    aweme = item.pop("_raw_aweme", None)
+    if not isinstance(video, Mapping) or not isinstance(aweme, Mapping):
+        return
+    if is_paid_content(aweme):
+        return
+
+    play_addr = video.get("play_addr")
+    if not isinstance(play_addr, Mapping):
+        return
+    uri = play_addr.get("uri") or video.get("vid")
+    if not uri:
+        return
+
+    params = {
+        "video_id": str(uri),
+        "ratio": "default",
+        "line": "0",
+        "is_play_url": "1",
+        "watermark": "0",
+        "source": "PackSourceEnum_PUBLISH",
+    }
+    if video.get("is_need_set_cookie"):
+        params["ss_is_p_v_ss"] = "1"
+
+    signed_url, ua = api_client.build_signed_path("/aweme/v1/play/", params)
+    headers = {
+        "User-Agent": ua,
+        "Referer": "https://www.douyin.com/",
+        "Range": "bytes=0-0",
+    }
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                signed_url,
+                headers=headers,
+                allow_redirects=True,
+                proxy=proxy or None,
+                timeout=aiohttp.ClientTimeout(total=_ORIGINAL_PROBE_TIMEOUT),
+            ) as resp:
+                if resp.status not in (200, 206):
+                    return
+                if not str(resp.content_type or "").startswith("video/"):
+                    return
+                content_range = str(resp.headers.get("Content-Range") or "")
+                raw_total = (
+                    content_range.rsplit("/", 1)[-1]
+                    if "/" in content_range
+                    else resp.headers.get("Content-Length")
+                )
+                total = int(raw_total or 0)
+                if total > 0:
+                    item["original_size_bytes"] = total
+    except Exception:
+        logger.debug("Original probe failed for %s", item.get("aweme_id"), exc_info=True)
+
+
+async def _probe_original_sizes(
+    items: List[Dict[str, Any]],
+    api_client: DouyinAPIClient,
+    proxy: Optional[str],
+) -> None:
+    """并发探测一页作品的原画大小，失败静默跳过。"""
+    video_items = [it for it in items if it.get("media_type") == "video" and it.get("_raw_video")]
+    if not video_items:
+        for it in items:
+            it.pop("_raw_video", None)
+            it.pop("_raw_aweme", None)
+        return
+    await asyncio.gather(
+        *(_probe_one_original(it, api_client, proxy) for it in video_items),
+        return_exceptions=True,
+    )
+    for it in items:
+        it.pop("_raw_video", None)
+        it.pop("_raw_aweme", None)

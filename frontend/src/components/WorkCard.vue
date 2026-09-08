@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { NButton, NCheckbox } from "naive-ui";
 import type { WorkItem } from "../api/types";
 import { formatBytes, formatCount, formatDuration, formatUnixDate } from "../shared/format";
+
+const MAX_VISIBLE_TIERS = 2;
+const expanded = ref(false);
 
 defineProps<{
   item: WorkItem;
@@ -40,7 +44,7 @@ function tierParam(label: string): string {
     @keydown.space.prevent="$emit('toggle')"
     @keydown.enter.prevent="$emit('toggle')"
   >
-    <!-- 左：封面 -->
+    <!-- 上：封面 -->
     <div class="cover-wrap">
       <img
         v-if="item.cover"
@@ -73,7 +77,7 @@ function tierParam(label: string): string {
       </span>
     </div>
 
-    <!-- 右：信息 + 画质行 -->
+    <!-- 下：信息 + 画质行 -->
     <div class="body">
       <div class="desc" :title="item.desc">{{ item.desc || "（无描述）" }}</div>
       <div class="meta">
@@ -91,10 +95,16 @@ function tierParam(label: string): string {
           title="最高码率 + 原画探测"
           @click.stop="$emit('download', 'original')"
         >
-          原画 <span class="tier-dl">⬇</span>
+          原画
+          <span v-if="item.original_size_bytes" class="tier-size">{{
+            formatBytes(item.original_size_bytes)
+          }}</span>
+          <span class="tier-dl">⬇</span>
         </button>
         <button
-          v-for="q in item.qualities"
+          v-for="q in expanded
+            ? item.qualities
+            : item.qualities.slice(0, MAX_VISIBLE_TIERS)"
           :key="q.gear_name"
           type="button"
           class="tier"
@@ -104,6 +114,14 @@ function tierParam(label: string): string {
           <b>{{ q.label }}</b>
           <span v-if="q.size_bytes" class="tier-size">{{ formatBytes(q.size_bytes) }}</span>
           <span class="tier-dl">⬇</span>
+        </button>
+        <button
+          v-if="!expanded && item.qualities.length > MAX_VISIBLE_TIERS"
+          type="button"
+          class="tier tier-more"
+          @click.stop="expanded = true"
+        >
+          +{{ item.qualities.length - MAX_VISIBLE_TIERS }}
         </button>
       </div>
       <div v-else class="tiers tiers-single">
@@ -118,9 +136,8 @@ function tierParam(label: string): string {
 <style scoped>
 .work-card {
   display: flex;
-  align-items: stretch;
-  /* 封面按 9:16 竖图取景，卡片高度以封面为准（200 宽 ≈ 264 高） */
-  min-height: 264px;
+  flex-direction: column;
+  min-width: 0;
   border: 1px solid var(--dd-border);
   border-radius: 12px;
   background: var(--dd-card-bg);
@@ -139,10 +156,11 @@ function tierParam(label: string): string {
   box-shadow: 0 0 0 2px rgba(32, 128, 240, 0.35);
 }
 
-/* 左侧封面：固定宽度，高度随卡片拉伸，图片绝对定位铺满避免塌陷 */
+/* 封面：固定 16:9 容器，图片铺满 */
 .cover-wrap {
   position: relative;
-  width: 200px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
   flex-shrink: 0;
   background: var(--dd-border);
 }
@@ -191,7 +209,7 @@ function tierParam(label: string): string {
   font-size: 11px;
 }
 
-/* 右侧信息区 */
+/* 信息区 */
 .body {
   flex: 1;
   min-width: 0;
@@ -204,8 +222,8 @@ function tierParam(label: string): string {
   font-size: 14px;
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -269,5 +287,10 @@ function tierParam(label: string): string {
   border-color: rgba(32, 128, 240, 0.5);
   color: #2080f0;
   font-weight: 600;
+}
+.tier-more {
+  color: var(--dd-text-secondary);
+  font-size: 12px;
+  padding: 6px 10px;
 }
 </style>
