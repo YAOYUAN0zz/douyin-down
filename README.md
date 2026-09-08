@@ -1,589 +1,178 @@
-# Douyin Downloader V2.0
+# 抖音下载器
 
-<p align="center">
-  <img src="https://socialify.git.ci/jiji262/douyin-downloader/image?custom_description=Douyin+batch+download+tool%2C+remove+watermarks%2C+support+batch+download+of+videos%2C+gallery%2C+and+author+homepages.&description=1&font=Source+Code+Pro&forks=1&owner=1&pattern=Circuit+Board&stargazers=1&theme=Light" alt="douyin-downloader" width="820" />
-</p>
+> 由 [拾壹0x7f](https://github.com/shiyi-0x7f) 维护的抖音内容下载与管理工具，提供 CLI、REST API 与 Vue 3 Web UI。
 
-<p align="center">
-    <a href="https://linux.do" alt="LINUX DO">
-        <img
-            src="https://img.shields.io/badge/LINUX-DO-FFB003.svg?logo=data:image/svg%2bxml;base64,DQo8c3ZnIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiPjxwYXRoIGQ9Ik00Ni44Mi0uMDU1aDYuMjVxMjMuOTY5IDIuMDYyIDM4IDIxLjQyNmM1LjI1OCA3LjY3NiA4LjIxNSAxNi4xNTYgOC44NzUgMjUuNDV2Ni4yNXEtMi4wNjQgMjMuOTY4LTIxLjQzIDM4LTExLjUxMiA3Ljg4NS0yNS40NDUgOC44NzRoLTYuMjVxLTIzLjk3LTIuMDY0LTM4LjAwNC0yMS40M1EuOTcxIDY3LjA1Ni0uMDU0IDUzLjE4di02LjQ3M0MxLjM2MiAzMC43ODEgOC41MDMgMTguMTQ4IDIxLjM3IDguODE3IDI5LjA0NyAzLjU2MiAzNy41MjcuNjA0IDQ2LjgyMS0uMDU2IiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZWNlY2VjO2ZpbGwtb3BhY2l0eToxIi8+PHBhdGggZD0iTTQ3LjI2NiAyLjk1N3EyMi41My0uNjUgMzcuNzc3IDE1LjczOGE0OS43IDQ5LjcgMCAwIDEgNi44NjcgMTAuMTU3cS00MS45NjQuMjIyLTgzLjkzIDAgOS43NS0xOC42MTYgMzAuMDI0LTI0LjM4N2E2MSA2MSAwIDAgMSA5LjI2Mi0xLjUwOCIgc3R5bGU9InN0cm9rZTpub25lO2ZpbGwtcnVsZTpldmVub2RkO2ZpbGw6IzE5MTkxOTtmaWxsLW9wYWNpdHk6MSIvPjxwYXRoIGQ9Ik03Ljk4IDcwLjkyNmMyNy45NzctLjAzNSA1NS45NTQgMCA4My45My4xMTNRODMuNDI2IDg3LjQ3MyA2Ni4xMyA5NC4wODZxLTE4LjgxIDYuNTQ0LTM2LjgzMi0xLjg5OC0xNC4yMDMtNy4wOS0yMS4zMTctMjEuMjYyIiBzdHlsZT0ic3Ryb2tlOm5vbmU7ZmlsbC1ydWxlOmV2ZW5vZGQ7ZmlsbDojZjlhZjAwO2ZpbGwtb3BhY2l0eToxIi8+PC9zdmc+" /></a>
-</p>
-中文文档 (Chinese): [README.zh-CN.md](./README.zh-CN.md)
+用于下载有权访问和保存的视频、图文、合集、音乐及作者主页作品；支持任务进度、下载历史、SQLite 去重、批量与增量下载，以及浏览器辅助获取下载参数。
 
+> [!WARNING]
+> 请仅下载有权访问、保存或处理的内容，并遵守平台规则、适用法律及他人的隐私和版权。平台接口、登录态和风控策略可能随时变化，部分功能可能因此失效。
 
-A practical Douyin downloader supporting videos, image-notes, collections, music, favorites collections, and profile batch downloads, with progress display, retries, SQLite deduplication, download integrity checks, and browser fallback support.
+## 核心能力
 
-## Feature Overview
+- **多类型链接**：视频、图文、合集、音乐、短链与作者主页。
+- **多种使用方式**：CLI、FastAPI REST API，以及同页浏览作品和提交下载的 Web UI。
+- **任务管理**：实时进度、取消/重试、SQLite 历史记录与已下载去重。
+- **批量下载**：主页发布作品、点赞、合集、音乐、收藏夹、增量下载与时间过滤。
+- **下载控制**：无水印源优先、画质选择、并发/限速/重试、文件完整性校验。
+- **扩展能力**：热搜/关键词搜索、通知推送与浏览器辅助分页；评论采集和直播录制目前仅保留 CLI 配置入口。
 
-### Supported
+完整使用、配置与排障说明见 [USAGE.md](./USAGE.md)，接口说明见 [API 文档](./dev_docs/api.md)。
 
-| Feature | Description |
-|---------|-------------|
-| Single video download | `/video/{aweme_id}` |
-| Single image-note download | `/note/{note_id}` and `/gallery/{note_id}` |
-| Single collection download | `/collection/{mix_id}` and `/mix/{mix_id}` |
-| Single music download | `/music/{music_id}` (prefers direct audio, fallback to first related aweme) |
-| Short link parsing | `https://v.douyin.com/...`, `v.iesdouyin.com`, bare hosts |
-| Profile batch download | `/user/{sec_uid}` + `mode: [post, like, mix, music]` |
-| Logged-in favorites collections | `/user/self?showTab=favorite_collection` + `mode: [collect, collectmix]` |
-| No-watermark preferred | Automatically selects watermark-free video source |
-| Highest-quality selection | Auto-picks highest bitrate from `video.bit_rate` ladder (video + live-photo) |
-| **Live stream recording** | `live.douyin.com/{room_id}` → FLV/HLS, preserves partial data on stream end |
-| **Comments collection** | Per-aweme comments (+ optional replies) saved as `*_comments.json` |
-| **Hot search + keyword search** | `--hot-board [N]` / `--search "keyword"` dumps to JSONL |
-| **REST API server mode** | `--serve --serve-port 8000` (optional `fastapi + uvicorn`) |
-| **Web UI + auto param fetch** | Open `http://host:port/` after `--serve`; one-click browser login auto-captures cookies/msToken |
-| **Notification push** | Bark / Telegram / Webhook on download completion |
-| Extra assets | Cover, music, avatar, JSON metadata |
-| Concurrent downloads | Configurable concurrency, default 5 |
-| Retry with backoff | Exponential backoff (1s, 2s, 5s) |
-| Rate limiting | Default 2 req/s |
-| SQLite deduplication | Database + local file dual dedup |
-| Incremental downloads | `increase.post/like/mix/music` |
-| Time filters | `start_time` / `end_time` |
-| Browser fallback | Launches browser when pagination is blocked, manual CAPTCHA supported |
-| Download integrity check | Content-Length validation, auto-cleanup of incomplete files |
-| Progress display | Rich progress bars, supports `progress.quiet_logs` quiet mode |
-| Docker deployment | Dockerfile included |
-| CI/CD | GitHub Actions for testing and linting |
+## 快速开始
 
-### Current Limitations
+### 环境要求
 
-- Browser fallback is fully validated for `post`; `like/mix/music` currently relies on API pagination
-- `number.allmix` / `increase.allmix` are retained as compatibility aliases and normalized to `mix`
-- `collect` / `collectmix` currently work for the account represented by the logged-in cookies only
-- `collect` / `collectmix` must be used alone and cannot be combined with `post` / `like` / `mix` / `music`
-- `increase` currently applies to `post` / `like` / `mix` / `music`; favorites collection modes do not support incremental stop
-- Live stream recording saves FLV natively; HLS sources only save the playlist (use ffmpeg for playable output)
-- The webcast room endpoint is not verified against every live scenario — treat as experimental
+- Python **3.9+** 与 [uv](https://docs.astral.sh/uv/)
+- 使用 Web UI 时，还需要 Node.js **20+** 与 [pnpm](https://pnpm.io/)
+- Windows、macOS 或 Linux
 
-## Quick Start
+以下命令均应在**仓库根目录**运行。`config.yml`、`.cookies.json`、`Downloaded/` 与数据库等运行文件依赖当前工作目录。
 
-### 1) Requirements
+### 1. 创建配置
 
-- [uv](https://docs.astral.sh/uv/) (Python backend dependency manager)
-- Node.js 20+ and [pnpm](https://pnpm.io/) (only needed for the Web UI)
-- macOS / Linux / Windows
-
-### 2) Install dependencies
-
-**Usually you don't need to.** `start-dev.sh` / `start-dev.ps1` / `start-prod.sh` bring both backend and frontend dependencies up to date on every launch (idempotent — a no-op once everything is installed).
-
-Dependencies resolve through China-based mirrors by default (Python → Tsinghua TUNA, Node → npmmirror), so first-time installs don't stall. To use the official registries instead, override via environment variables — no file edits needed:
-
-```bash
-UV_DEFAULT_INDEX=https://pypi.org/simple
-npm_config_registry=https://registry.npmjs.org
-```
-
-`UV_EXTRAS` in `.env.dev` defaults to `server,browser`, so the startup script installs Playwright and the Chromium engine (~150MB on first run) — without them you cannot capture download parameters, and downloads are rejected up front when parameters are missing.
-
-Manual install (only needed for pure-CLI use without the startup scripts):
-
-```bash
-uv sync --project backend --extra server --inexact
-```
-
-> `--inexact` means "add, never remove". Without it, uv uninstalls anything outside the
-> requested extras — including playwright you installed earlier.
-
-### 3) Copy config file
+macOS / Linux：
 
 ```bash
 cp config.example.yml config.yml
 ```
 
-### 4) Get cookies (recommended: automatic)
+Windows PowerShell：
+
+```powershell
+Copy-Item config.example.yml config.yml
+```
+
+### 2. 获取下载参数
+
+推荐通过浏览器登录自动获取 Cookie 与下载参数：
 
 ```bash
 uv run --project backend python -m tools.cookie_fetcher --config config.yml
 ```
 
-After logging into Douyin, return to the terminal and press Enter. Cookies will be written to your config automatically.
+完成浏览器登录后回到终端继续即可。Cookie 会过期；遇到登录态或风控错误时，请重新获取。
 
-### 5) Docker deployment (optional)
+### 3. 选择启动方式
+
+#### Web UI（推荐）
+
+开发模式会同时启动后端与 Vite 前端，并自动补齐依赖：
 
 ```bash
-docker build -t douyin-downloader .
-docker run -v $(pwd)/config.yml:/app/config.yml -v $(pwd)/Downloaded:/app/Downloaded douyin-downloader
+./start-dev.sh
 ```
 
-## Minimal Working Config
+Windows PowerShell：
 
-```yaml
-link:
-  - https://www.douyin.com/user/MS4wLjABAAAAxxxx
-
-path: ./Downloaded/
-mode:
-  - post
-
-number:
-  post: 0
-  collect: 0
-  collectmix: 0
-
-thread: 5
-retry_times: 3
-proxy: ""
-database: true
-database_path: dy_downloader.db
-
-progress:
-  quiet_logs: true
-
-cookies:
-  msToken: ""
-  ttwid: YOUR_TTWID
-  odin_tt: YOUR_ODIN_TT
-  passport_csrf_token: YOUR_CSRF_TOKEN
-  sid_guard: ""
-
-browser_fallback:
-  enabled: true
-  headless: false
-  max_scrolls: 240
-  idle_rounds: 8
-  wait_timeout_seconds: 600
-
+```powershell
+.\start-dev.ps1
 ```
 
-## Usage
+生产模式会构建前端后由后端统一提供页面：
 
-> Run all commands from the repository root (`uv run --project backend` keeps `config.yml`, `Downloaded/`, etc. resolving as before).
+```bash
+./start-prod.sh
+```
 
-### Run with a config file
+> `start-dev.*` 默认安装 `server,browser` 依赖及 Chromium，以支持 Web UI 与浏览器登录流程；首次执行需要下载浏览器内核。
+
+#### CLI
+
+使用配置文件执行：
 
 ```bash
 uv run --project backend douyin-dl -c config.yml
 ```
 
-### Append CLI arguments
+临时追加链接、并发数和下载路径：
 
 ```bash
 uv run --project backend douyin-dl -c config.yml \
   -u "https://www.douyin.com/video/7604129988555574538" \
-  -t 8 \
+  -t 5 \
   -p ./Downloaded
 ```
 
-### Arguments
+常用参数：
 
-| Argument | Description |
-|----------|-------------|
-| `-u, --url` | Append download link(s), can be repeated |
-| `-c, --config` | Specify config file (default: `config.yml`) |
-| `-p, --path` | Specify download directory |
-| `-t, --thread` | Specify concurrency |
-| `--show-warnings` | Show warning/error logs |
-| `-v, --verbose` | Show info/warning/error logs |
-| `--hot-board [N]` | Fetch Douyin hot search board and write JSONL; optional top-N |
-| `--search KEYWORD` | Search videos by keyword, write JSONL |
-| `--search-max N` | Max items for `--search` (default 50) |
-| `--serve` | Run as REST API server (needs the `server` extra; startup scripts install it automatically) |
-| `--serve-host HOST` | REST server listen host (default 127.0.0.1) |
-| `--serve-port PORT` | REST server listen port (default 8000) |
-| `--version` | Show version number |
+| 参数 | 说明 |
+| --- | --- |
+| `-u, --url` | 追加下载链接，可重复传入 |
+| `-c, --config` | 配置文件路径，默认 `config.yml` |
+| `-p, --path` | 下载目录 |
+| `-t, --thread` | 并发数 |
+| `-v, --verbose` | 输出更详细的日志 |
+| `--serve` | 启动 REST API 与已构建的 Web UI |
+| `--hot-board [N]` | 导出抖音热搜结果 |
+| `--search KEYWORD` | 按关键词搜索并导出结果 |
 
-## Typical Scenarios
+运行 `uv run --project backend douyin-dl --help` 查看完整参数列表。
 
-### Download one video
+## Web UI
 
-```yaml
-link:
-  - https://www.douyin.com/video/7604129988555574538
-```
+Web UI 提供以下主要流程：
 
-### Download one image-note
+1. 在下载页粘贴单个视频、图文、合集、音乐或作者主页链接；
+2. 使用“浏览作品”查看可取得的作品卡片、画质、元数据与下载状态；
+3. 勾选需要的作品后提交下载，或直接创建下载任务；
+4. 在任务中心查看进度、重试或取消任务；
+5. 在历史记录中搜索、查看已下载作品及元数据。
 
-```yaml
-link:
-  - https://www.douyin.com/note/7341234567890123456
-```
+作者主页的作品列表依赖抖音接口返回有效分页数据。若出现验证码、403、Cookie 失效或接口风控，页面会提示错误或结果可能不完整；这不表示所有作品都已成功取得。
 
-### Download a collection
+## 常见限制
 
-```yaml
-link:
-  - https://www.douyin.com/collection/7341234567890123456
-```
+- 登录 Cookie 与下载参数会失效，需要重新获取。
+- 收藏夹相关模式仅支持当前 Cookie 对应的账号，且不能与其他主页模式混用。
+- 浏览器辅助功能可能需要人工完成登录或验证码，不能保证绕过平台限制。
+- 评论采集与直播录制已暂从 Web UI 设置页下线；如有需要，仍可通过 CLI 配置使用，且受平台变化影响较大。
 
-### Download a music track
+## 数据与凭据安全
 
-```yaml
-link:
-  - https://www.douyin.com/music/7341234567890123456
-```
+以下文件可能包含登录凭据、个人下载数据或数据库记录，已被 Git 忽略，**不要提交、打包或外发**：
 
-### Batch download a creator's posts
+- `config.yml`
+- `.cookies.json`
+- `.env.dev` / `.env.prod`
+- `dy_downloader.db*`
+- `Downloaded/`
 
-```yaml
-link:
-  - https://www.douyin.com/user/MS4wLjABAAAAxxxx
-mode:
-  - post
-number:
-  post: 50
-```
+## 开发与验证
 
-### Batch download a creator's liked posts
-
-```yaml
-link:
-  - https://www.douyin.com/user/MS4wLjABAAAAxxxx
-mode:
-  - like
-number:
-  like: 0    # 0 means download all
-```
-
-### Download multiple modes at once
-
-```yaml
-link:
-  - https://www.douyin.com/user/MS4wLjABAAAAxxxx
-mode:
-  - post
-  - like
-  - mix
-  - music
-```
-
-Cross-mode deduplication: the same aweme_id won't be downloaded twice across different modes.
-
-### Download logged-in favorites collection items
-
-```yaml
-link:
-  - https://www.douyin.com/user/self?showTab=favorite_collection
-mode:
-  - collect
-number:
-  collect: 0
-```
-
-### Download logged-in collected mixes
-
-```yaml
-link:
-  - https://www.douyin.com/user/self?showTab=favorite_collection
-mode:
-  - collectmix
-number:
-  collectmix: 0
-```
-
-### Record a live stream (experimental)
-
-```yaml
-link:
-  - https://live.douyin.com/123456789   # or /follow/live/{room_id}
-live:
-  max_duration_seconds: 3600   # 0 = record until broadcaster ends
-  chunk_size: 65536
-  idle_timeout_seconds: 30
-```
-
-The recorder saves an FLV file under `Downloaded/{author}/live/` plus a `*_room.json`
-metadata snapshot. If the broadcaster ends the stream, network goes idle, or you
-Ctrl+C, any already-recorded bytes are preserved (the `.tmp` file is promoted to
-the final file).
-
-### Collect comments per aweme
-
-```yaml
-comments:
-  enabled: true
-  include_replies: false   # true will fetch each comment's second-level replies (extra API calls)
-  max_comments: 500        # 0 = no cap
-  page_size: 20
-```
-
-Generates a `{date}_{title}_{aweme_id}_comments.json` next to the media file.
-
-### Dump the hot search board
+后端：
 
 ```bash
-uv run --project backend douyin-dl --hot-board 30 -p ./Downloaded
-# Output: ./Downloaded/hot_board/20260424_221530.jsonl
+uv --directory backend run ruff check .
+uv --directory backend run pytest
 ```
 
-### Search by keyword
+前端：
 
 ```bash
-uv run --project backend douyin-dl --search "猫咪" --search-max 100 -p ./Downloaded
-# Output: ./Downloaded/search/猫咪_20260424_221530.jsonl
+cd frontend
+pnpm check
+pnpm build
 ```
 
-### Run as REST API server (with Web UI)
+项目结构、开发约定与测试要求见 [AGENTS.md](./AGENTS.md)。
 
-```bash
-./start-dev.sh        # dev: backend + Vite dev server (Windows: .\start-dev.ps1)
-./start-prod.sh       # prod: build the frontend, then serve everything from the backend
-```
+## 维护与致谢
 
-Or start the backend manually:
+**拾壹0x7f** 负责本仓库的持续维护与二次开发，包括 Vue 3 Web 控制台、前后端 monorepo 重构、任务与历史记录能力。
 
-```bash
-uv run --project backend douyin-dl --serve --serve-port 8000
-```
+本项目基于 [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader) 的原始实现进行二次开发，感谢原项目的开源贡献。
 
-Endpoints (responses share one envelope: `{code, message, data}`, success `code=0`):
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Web UI |
-| POST | `/api/v1/download` | Submit `{"url", "video_quality"?}`, returns `{job_id, status}`; rejected with 401/40100 when download parameters are missing |
-| POST | `/api/v1/download/batch` | Batch submit `{"urls", "video_quality"?}` (max 100 per call); same up-front credential check, whole batch rejected |
-| POST | `/api/v1/works/list` | Preview a works list `{"url", "cursor", "count"}`; items include all quality tiers |
-| GET | `/api/v1/jobs/{job_id}` | Get a specific job's status/counts/live progress (`progress` field) |
-| GET | `/api/v1/jobs` | List recent jobs (TTL + capacity capped) |
-| GET | `/api/v1/auth/status` | Download-parameter (cookie/msToken) readiness and missing keys |
-| POST | `/api/v1/auth/fetch` | Launch a browser login to auto-capture parameters; 503/50301 with fix commands when Playwright or the browser engine is missing |
-| GET | `/api/v1/auth/fetch/status` | Poll the capture session progress |
-| POST | `/api/v1/auth/fetch/confirm` | Manually declare "logged in" to capture immediately |
-| POST | `/api/v1/auth/fetch/cancel` | Cancel the running capture session |
-
-Finished jobs are pruned by TTL (default 24h) and max-jobs (default 500) — in-flight jobs are never pruned. Configure via `server.max_jobs` / `server.job_ttl_seconds`.
-
-### Web UI and automatic parameter fetching
-
-After `--serve`, open `http://127.0.0.1:8000/` in a browser:
-
-- **Submit downloads:** paste a video/gallery/profile/mix link and watch job status live.
-- **Pick-and-download from a works list:** enter a profile/mix/music link and fetch the list — a card grid shows cover, description, author, publish time, play/like/comment/collect/share counts, hashtags, music, and **every bitrate tier's resolution, bitrate, and file size** directly on each card; click cards to select (with select-all and load-more), then download only the chosen works.
-- **Live download progress:** running jobs show the current step, author, finished/total item counts, and a byte-level progress bar for the file being downloaded.
-- **Quality visibility and selection:** the works table shows every available quality tier per work (hover for resolution/size/bitrate); downloads accept a per-job `video_quality` override (original/highest/1440p–360p/lowest, defaulting to the configured value) without touching the global config.
-- **Parameter status:** shows whether the required keys (`msToken` / `ttwid` / `odin_tt` / `passport_csrf_token`) are present.
-- **Auto fetch:** one click opens a server-side browser window; once you log into Douyin the flow auto-detects the session, captures cookies + msToken, and saves them to `.cookies.json` — no terminal interaction. A "logged in" button is available as a manual fallback.
-- **Edit settings in the UI:** download path, quality, concurrency, what to save (video/cover/music/avatar/JSON), naming templates, proxy, comment collection, live recording, and completion notifications are all editable on the **Settings** page and written straight back to `config.yml` — **no hand-editing required**. Keys you authored manually but the page doesn't cover are preserved. Everything takes effect on save except concurrency, which needs a server restart (the page says so).
-
-Captured parameters persist in `.cookies.json` (next to `config.yml`) and survive server restarts; inline `cookies:` in `config.yml` only seed the very first run (when no `.cookies.json` exists yet) and never overwrite the file afterwards.
-
-Auto fetch requires Playwright, installed by default (`UV_EXTRAS=server,browser`, engine included). If it is missing, the "Auto fetch" button is disabled and shows the exact commands to run, and nothing enters a running state — the manual equivalent is `uv sync --project backend --extra browser --inexact && uv run --project backend python -m playwright install chromium`. Browser engine, headless mode, and login timeout are configurable via `server.auth_flow.*` (see `config.example.yml`).
-
-### Send a notification on completion
-
-```yaml
-notifications:
-  enabled: true
-  on_success: true
-  on_failure: true
-  providers:
-    - type: bark
-      url: https://api.day.app/YOUR_DEVICE_KEY
-      sound: bell
-    - type: telegram
-      bot_token: "123456:ABC..."
-      chat_id: "987654321"
-    - type: webhook                 # works with 企业微信/飞书/钉钉 bot URLs too
-      url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx
-      extra_body:
-        msgtype: text
-```
-
-All enabled providers are notified in parallel; a failing provider never blocks the download flow.
-
-
-### Incremental download (only new items)
-
-```yaml
-increase:
-  post: true
-database: true    # incremental mode requires database
-```
-
-### Full crawl (no item limit)
-
-```yaml
-number:
-  post: 0
-```
-
-## Testing
-
-Recommended:
-
-```bash
-python3 -m pytest -q
-```
-
-Plain `pytest` is also supported now:
-
-```bash
-pytest -q
-```
-
-## Key Config Fields
-
-| Field | Description |
-|-------|-------------|
-| `mode` | Supports `post`/`like`/`mix`/`music`; logged-in favorites mode additionally supports standalone `collect`/`collectmix` |
-| `number.post/like/mix/music/collect/collectmix` | Per-mode download limit, 0 = unlimited |
-| `increase.post/like/mix/music` | Per-mode incremental toggle |
-| `start_time` / `end_time` | Time filter (format: `YYYY-MM-DD`) |
-| `folderstyle` | Create per-item subdirectories |
-| `browser_fallback.*` | Browser fallback for `post` when pagination is restricted |
-| `progress.quiet_logs` | Quiet logs during progress stage |
-| `comments.*` | Per-aweme comments collection (opt-in) |
-| `live.*` | Live stream recording options (max_duration_seconds / chunk_size / idle_timeout_seconds) |
-| `notifications.*` | Bark/Telegram/Webhook push on completion |
-| `server.*` | REST API server tuning (max_jobs, job_ttl_seconds, auth_flow.*) |
-| `proxy` | Optional HTTP/HTTPS proxy setting |
-| `database` | Enable SQLite deduplication and history |
-| `database_path` | SQLite path, default is `dy_downloader.db` in the current working directory |
-| `thread` | Concurrent download count |
-| `retry_times` | Retry count on failure |
-
-## Output Structure
-
-Default with `folderstyle: true` and `database_path: dy_downloader.db`:
-
-```text
-workspace/
-├── config.yml
-├── dy_downloader.db          # default location when database: true
-└── Downloaded/
-    ├── download_manifest.jsonl
-    ├── hot_board/                # when --hot-board is used
-    │   └── 20260424_221530.jsonl
-    ├── search/                   # when --search is used
-    │   └── 猫咪_20260424_221530.jsonl
-    └── AuthorName/
-        ├── post/
-        │   └── 2024-02-07_Title_aweme_id/
-        │       ├── ...mp4
-        │       ├── ..._cover.jpg
-        │       ├── ..._music.mp3
-        │       ├── ..._data.json
-        │       ├── ..._avatar.jpg
-        │       └── ..._comments.json    # when comments.enabled
-        ├── like/
-        │   └── ...
-        ├── mix/
-        │   └── ...
-        ├── music/
-        │   └── ...
-        ├── collect/
-        │   └── ...
-        ├── collectmix/
-        │   └── ...
-        └── live/                 # when recording live streams
-            └── 2026-04-24_2215_LiveTitle_RoomId/
-                ├── ...flv
-                └── ..._room.json
-```
-
-## Re-downloading Content
-
-The program uses a **database record + local file** dual check to decide whether to skip already-downloaded content. To force re-download, you need to clean up accordingly:
-
-### Re-download a specific item
-
-```bash
-# Delete local files (folder name contains the aweme_id)
-rm -rf Downloaded/AuthorName/post/*_<aweme_id>/
-
-# Delete database record
-sqlite3 dy_downloader.db "DELETE FROM aweme WHERE aweme_id = '<aweme_id>';"
-```
-
-### Re-download all items from a specific author
-
-```bash
-rm -rf Downloaded/AuthorName/
-sqlite3 dy_downloader.db "DELETE FROM aweme WHERE author_name = 'AuthorName';"
-```
-
-### Full reset (re-download everything)
-
-```bash
-rm -rf Downloaded/
-rm dy_downloader.db
-```
-
-> **Note:** Deleting only the database but keeping files will NOT trigger re-download — the program scans local filenames for aweme_id to detect existing downloads. Deleting only files but keeping the database WILL trigger re-download (the program treats "in DB but missing locally" as needing retry).
-
-## FAQ
-
-### 1) Why do I only get around 20 posts?
-
-This is a common pagination risk-control behavior. Make sure:
-
-- `browser_fallback.enabled: true`
-- `browser_fallback.headless: false`
-- complete verification manually in the browser popup, and do not close it too early
-
-### 2) Why is the progress output noisy/repeated?
-
-By default, `progress.quiet_logs: true` suppresses logs during progress stage.  
-Use `--show-warnings` or `-v` temporarily when debugging.
-
-### 3) What if cookies are expired?
-
-Run:
-
-```bash
-uv run --project backend python -m tools.cookie_fetcher --config config.yml
-```
-
-### 4) How to view download history?
-
-```bash
-sqlite3 dy_downloader.db "SELECT aweme_id, title, author_name, datetime(download_time, 'unixepoch', 'localtime') FROM aweme ORDER BY download_time DESC LIMIT 20;"
-```
-
-## Community Group
-
-<img src="./img/fuye.jpg" alt="qun" width="240" />
-
-点击链接加入群聊【QQ群】：[https://qm.qq.com/q/9xoNt8Wzv4](https://qm.qq.com/q/9xoNt8Wzv4)
-
-## Credits
-
-<table>
-  <tr>
-    <td align="center" width="50%">
-      <sub>Original project</sub><br/>
-      <a href="https://github.com/jiji262/douyin-downloader"><b>jiji262/douyin-downloader</b></a><br/>
-      <sub>Download engine · CLI · watermark-free parsing</sub>
-    </td>
-    <td align="center" width="50%">
-      <sub>Fork & further development</sub><br/>
-      <a href="https://github.com/shiyi-0x7f"><b>拾壹0x7f</b> (shiyi-0x7f)</a><br/>
-      <sub>Web UI · monorepo refactor · history</sub>
-    </td>
-  </tr>
-</table>
-
-Thanks to [jiji262](https://github.com/jiji262) for the original implementation; this fork adds a Vue 3 web console and a split frontend/backend layout on top of it.
-
-### Follow 拾壹0x7f
+### 联系与关注
 
 <p>
   <a href="https://github.com/shiyi-0x7f"><img src="https://img.shields.io/badge/GitHub-shiyi--0x7f-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
+  <a href="https://x.com/shiyi0x7f"><img src="https://img.shields.io/badge/X-@shiyi0x7f-000000?style=flat-square&logo=x&logoColor=white" alt="X" /></a>
   <a href="https://space.bilibili.com/19276680"><img src="https://img.shields.io/badge/Bilibili-19276680-00A1D6?style=flat-square&logo=bilibili&logoColor=white" alt="Bilibili" /></a>
-  <img src="https://img.shields.io/badge/WeChat-Official%20Account-07C160?style=flat-square&logo=wechat&logoColor=white" alt="WeChat Official Account" />
+  <img src="https://img.shields.io/badge/WeChat-%E6%89%AB%E7%A0%81%E5%85%B3%E6%B3%A8-07C160?style=flat-square&logo=wechat&logoColor=white" alt="微信公众号" />
 </p>
 
-<img src="./img/wechat-mp-qr.jpg" alt="WeChat Official Account QR" width="180" />
+<img src="./img/wechat-mp-qr.jpg" alt="拾壹0x7f 微信公众号二维码" width="180" />
 
-## Disclaimer
+## 许可证
 
-This project is for technical research, learning, and personal data management only. Please use it legally and responsibly:
-
-- Do not use it to infringe others' privacy, copyright, or other legal rights
-- Do not use it for any illegal purpose
-- Users are solely responsible for all risks and liabilities arising from usage
-- If platform policies or interfaces change and features break, this is a normal technical risk
-
-By continuing to use this project, you acknowledge and accept the statements above.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
-
-## Friendly Links
-
-- [LINUX DO](https://linux.do/)
+本项目采用 [MIT License](./LICENSE)。
