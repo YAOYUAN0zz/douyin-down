@@ -81,11 +81,19 @@ export interface WorkItem {
   downloaded: boolean;
 }
 
+export type WorksPaginationStatus = "more_available" | "complete" | "restricted";
+export type WorksPaginationReason = "cursor_stalled" | "upstream_ended_early" | null;
+
 export interface WorksPage {
   source_type: string;
   items: WorkItem[];
   has_more: boolean;
   cursor: number;
+  /** 上游分页是否可继续；restricted 表示当前结果可能不完整。 */
+  pagination_status: WorksPaginationStatus;
+  pagination_reason: WorksPaginationReason;
+  /** 作者资料报告的公开作品数，仅在可取得且分页受限时返回。 */
+  reported_total: number | null;
 }
 
 /** 历史记录条目（后端 aweme 表投影；时间为 unix 秒） */

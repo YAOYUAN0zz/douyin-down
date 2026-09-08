@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover
 from conftest import mark_credentials_ready
 
 from config import ConfigLoader
+from server import works as works_service
 from server.api import works as works_api
 from server.app import build_app
 from server.works import WorksListError, list_works, normalize_aweme
@@ -143,6 +144,123 @@ async def test_list_works_rejects_unsupported_url():
         await list_works("https://example.com/whatever", cookies={})
 
 
+class _FakeWorksClient:
+    """列表服务的轻量替身，避免测试触达真实抖音接口与原画探测。"""
+
+    pages = []
+    post_calls = []
+    user_info = None
+
+    def __init__(self, *_args, **_kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *_args):
+        return None
+
+    async def get_user_post(self, sec_uid, max_cursor=0, count=20):
+        self.__class__.post_calls.append((sec_uid, max_cursor, count))
+        return self.__class__.pages.pop(0)
+
+    async def get_user_info(self, _sec_uid):
+        return self.__class__.user_info
+
+
+def _fake_aweme(aweme_id):
+    return {"aweme_id": str(aweme_id), "video": {"duration": 1000}}
+
+
+@pytest.mark.asyncio
+async def test_list_works_user_pagination_forwards_next_cursor(monkeypatch):
+    _FakeWorksClient.pages = [
+        {"items": [_fake_aweme("1")], "has_more": True, "max_cursor": 123},
+        {"items": [_fake_aweme("2")], "has_more": False, "max_cursor": 0},
+    ]
+    _FakeWorksClient.post_calls = []
+    _FakeWorksClient.user_info = None
+    monkeypatch.setattr(works_service, "DouyinAPIClient", _FakeWorksClient)
+    monkeypatch.setattr(works_service, "_probe_original_sizes", lambda *_args: _no_op())
+
+    first = await list_works("https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={})
+    second = await list_works(
+        "https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={}, cursor=first["cursor"]
+    )
+
+    assert _FakeWorksClient.post_calls == [("MS4wLjABAAAA_x", 0, 20), ("MS4wLjABAAAA_x", 123, 20)]
+    assert first["pagination_status"] == "more_available"
+    assert second["pagination_status"] == "complete"
+
+
+async def _no_op():
+    return None
+
+
+@pytest.mark.asyncio
+async def test_list_works_marks_stalled_cursor_restricted(monkeypatch):
+    _FakeWorksClient.pages = [{"items": [_fake_aweme("1")], "has_more": True, "max_cursor": 0}]
+    _FakeWorksClient.post_calls = []
+    monkeypatch.setattr(works_service, "DouyinAPIClient", _FakeWorksClient)
+    monkeypatch.setattr(works_service, "_probe_original_sizes", lambda *_args: _no_op())
+
+    page = await list_works("https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={})
+
+    assert page["has_more"] is True
+    assert page["pagination_status"] == "restricted"
+    assert page["pagination_reason"] == "cursor_stalled"
+
+
+@pytest.mark.asyncio
+async def test_list_works_marks_full_page_early_end_restricted(monkeypatch):
+    _FakeWorksClient.pages = [
+        {"items": [_fake_aweme(index) for index in range(20)], "has_more": False, "max_cursor": 0}
+    ]
+    _FakeWorksClient.post_calls = []
+    _FakeWorksClient.user_info = {"aweme_count": 300}
+    monkeypatch.setattr(works_service, "DouyinAPIClient", _FakeWorksClient)
+    monkeypatch.setattr(works_service, "_probe_original_sizes", lambda *_args: _no_op())
+
+    page = await list_works("https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={})
+
+    assert page["pagination_status"] == "restricted"
+    assert page["pagination_reason"] == "upstream_ended_early"
+    assert page["reported_total"] == 300
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "raw",
+    [{"status_code": 0}, {}],
+)
+async def test_list_works_rejects_empty_user_page_from_upstream(monkeypatch, raw):
+    _FakeWorksClient.pages = [{"items": [], "has_more": False, "max_cursor": 0, "raw": raw}]
+    _FakeWorksClient.post_calls = []
+    _FakeWorksClient.user_info = None
+    monkeypatch.setattr(works_service, "DouyinAPIClient", _FakeWorksClient)
+    monkeypatch.setattr(works_service, "_probe_original_sizes", lambda *_args: _no_op())
+
+    with pytest.raises(WorksListError, match="反爬限制"):
+        await list_works("https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={})
+
+
+@pytest.mark.asyncio
+async def test_list_works_marks_short_final_page_complete(monkeypatch):
+    _FakeWorksClient.pages = [
+        {"items": [_fake_aweme(index) for index in range(3)], "has_more": False, "max_cursor": 0}
+    ]
+    _FakeWorksClient.post_calls = []
+    _FakeWorksClient.user_info = None
+    monkeypatch.setattr(works_service, "DouyinAPIClient", _FakeWorksClient)
+    monkeypatch.setattr(works_service, "_probe_original_sizes", lambda *_args: _no_op())
+
+    page = await list_works("https://www.douyin.com/user/MS4wLjABAAAA_x", cookies={})
+
+    assert page["pagination_status"] == "complete"
+    assert page["pagination_reason"] is None
+    assert page["reported_total"] is None
+
+
 # ---------------- HTTP 端点 ----------------
 
 
@@ -157,6 +275,9 @@ def test_works_list_endpoint_returns_page(tmp_path, monkeypatch):
             "items": [{"aweme_id": "1", "download_url": "https://www.douyin.com/video/1"}],
             "has_more": True,
             "cursor": 1723900000,
+            "pagination_status": "more_available",
+            "pagination_reason": None,
+            "reported_total": None,
         }
 
     monkeypatch.setattr(works_api, "list_works", fake_list_works)
@@ -171,6 +292,9 @@ def test_works_list_endpoint_returns_page(tmp_path, monkeypatch):
         assert data["source_type"] == "user"
         assert data["has_more"] is True
         assert data["cursor"] == 1723900000
+        assert data["pagination_status"] == "more_available"
+        assert data["pagination_reason"] is None
+        assert data["reported_total"] is None
         assert len(data["items"]) == 1
 
 
