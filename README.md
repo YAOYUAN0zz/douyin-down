@@ -1,6 +1,18 @@
-# 抖音下载器
+# douyin-down
 
-> 由 [拾壹0x7f](https://github.com/shiyi-0x7f) 维护的抖音内容下载与管理工具，提供 CLI、REST API 与 Vue 3 Web UI。
+> 由 [YAOYUAN0zz](https://github.com/YAOYUAN0zz) 维护的抖音下载器学习与后续开发仓库，提供 CLI、REST API 与 Vue 3 Web UI。
+
+## 项目状态
+
+本仓库作为个人预备作品与后续开发起点保存，目前沿用上游功能实现。本次整理仅涉及项目展示、维护者信息与来源说明，尚未增加下载功能，也未解决平台反爬、登录态或分页完整性问题；请勿将其视为已验证稳定可用的成品。
+
+后续计划：
+
+- 梳理下载流程与前后端结构。
+- 排查登录态、接口风控与分页不完整的问题。
+- 完善失败提示、重试体验和下载结果核对。
+- 在验证功能后更新使用文档与演示。
+
 
 用于下载有权访问和保存的视频、图文、合集、音乐及作者主页作品；支持任务进度、下载历史、SQLite 去重、批量与增量下载，以及浏览器辅助获取下载参数。
 
@@ -156,23 +168,17 @@ pnpm build
 
 项目结构、开发约定与测试要求见 [AGENTS.md](./AGENTS.md)。
 
-## 维护与致谢
+## 维护与来源
 
-**拾壹0x7f** 负责本仓库的持续维护与二次开发，包括 Vue 3 Web 控制台、前后端 monorepo 重构、任务与历史记录能力。
+当前仓库由 [YAOYUAN0zz](https://github.com/YAOYUAN0zz) 整理和维护，仓库地址：[YAOYUAN0zz/douyin-down](https://github.com/YAOYUAN0zz/douyin-down)。
 
-本项目基于 [jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader) 的原始实现进行二次开发，感谢原项目的开源贡献。
+本项目沿用以下开源项目的实现与贡献：
 
-### 联系与关注
+- 原始项目：[jiji262/douyin-downloader](https://github.com/jiji262/douyin-downloader)。
+- 直接来源：[shiyi-0x7f/douyin-downloader](https://github.com/shiyi-0x7f/douyin-downloader)。该版本包含 Vue 3 Web 控制台、前后端 monorepo 重构、任务与历史记录等贡献。
 
-<p>
-  <a href="https://github.com/shiyi-0x7f"><img src="https://img.shields.io/badge/GitHub-shiyi--0x7f-181717?style=flat-square&logo=github&logoColor=white" alt="GitHub" /></a>
-  <a href="https://x.com/shiyi0x7f"><img src="https://img.shields.io/badge/X-@shiyi0x7f-000000?style=flat-square&logo=x&logoColor=white" alt="X" /></a>
-  <a href="https://space.bilibili.com/19276680"><img src="https://img.shields.io/badge/Bilibili-19276680-00A1D6?style=flat-square&logo=bilibili&logoColor=white" alt="Bilibili" /></a>
-  <img src="https://img.shields.io/badge/WeChat-%E6%89%AB%E7%A0%81%E5%85%B3%E6%B3%A8-07C160?style=flat-square&logo=wechat&logoColor=white" alt="微信公众号" />
-</p>
-
-<img src="./img/wechat-mp-qr.jpg" alt="拾壹0x7f 微信公众号二维码" width="180" />
+感谢原作者及上游贡献者。本仓库的维护者署名不表示上游代码由当前维护者原创；后续新增和修改内容以提交记录为准。
 
 ## 许可证
 
-本项目采用 [MIT License](./LICENSE)。
+本项目采用 [MIT License](./LICENSE)，保留原有版权声明及许可文本。

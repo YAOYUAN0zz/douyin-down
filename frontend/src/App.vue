@@ -73,7 +73,7 @@ onMounted(() => {
     <n-message-provider>
       <n-layout position="absolute">
         <n-layout-header bordered class="app-header">
-          <span class="app-title">Douyin Downloader</span>
+          <span class="app-title">douyin-down</span>
           <span class="app-header-spacer"></span>
 
           <n-tag v-if="jobs.offline" type="error" size="small" round>
