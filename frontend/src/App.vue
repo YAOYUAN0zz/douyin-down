@@ -14,6 +14,7 @@ import {
   darkTheme,
   dateZhCN,
   zhCN,
+  type GlobalThemeOverrides,
   type MenuOption,
 } from "naive-ui";
 import { computed, h, onMounted, ref, watchEffect } from "vue";
@@ -37,6 +38,47 @@ window
 const isDark = computed(() =>
   themeMode.value === "auto" ? systemDark.value : themeMode.value === "dark",
 );
+const themeOverrides = computed<GlobalThemeOverrides>(() => {
+  const blue = isDark.value ? "#9bd4f8" : "#8acbf4";
+  const blueHover = isDark.value ? "#b8e2fc" : "#a8dcfa";
+  const bluePressed = "#68b6e7";
+  const blueText = isDark.value ? "#b8e2fc" : "#25698f";
+  return {
+    common: {
+      primaryColor: blue,
+      primaryColorHover: blueHover,
+      primaryColorPressed: bluePressed,
+      primaryColorSuppl: bluePressed,
+      successColor: blue,
+      successColorHover: blueHover,
+      successColorPressed: bluePressed,
+      successColorSuppl: bluePressed,
+    },
+    Button: {
+      textColorPrimary: "#173e58",
+      textColorHoverPrimary: "#173e58",
+      textColorPressedPrimary: "#173e58",
+      textColorFocusPrimary: "#173e58",
+      textColorSuccess: "#173e58",
+      textColorHoverSuccess: "#173e58",
+      textColorPressedSuccess: "#173e58",
+      textColorFocusSuccess: "#173e58",
+    },
+    Menu: {
+      itemTextColorActive: blueText,
+      itemTextColorActiveHover: blueText,
+      itemIconColorActive: blueText,
+      itemIconColorActiveHover: blueText,
+      itemColorActive: isDark.value ? "#193c53" : "#e8f5fd",
+      itemColorActiveHover: isDark.value ? "#214a65" : "#dbf0fd",
+    },
+    Tag: {
+      textColorSuccess: blueText,
+      colorSuccess: isDark.value ? "#193c53" : "#e8f5fd",
+      borderColorSuccess: isDark.value ? "#467fa2" : "#b8dff7",
+    },
+  };
+});
 watchEffect(() => {
   document.documentElement.dataset.theme = isDark.value ? "dark" : "light";
 });
@@ -69,7 +111,12 @@ onMounted(() => {
 </script>
 
 <template>
-  <n-config-provider :theme="isDark ? darkTheme : null" :locale="zhCN" :date-locale="dateZhCN">
+  <n-config-provider
+    :theme="isDark ? darkTheme : null"
+    :theme-overrides="themeOverrides"
+    :locale="zhCN"
+    :date-locale="dateZhCN"
+  >
     <n-message-provider>
       <n-layout position="absolute">
         <n-layout-header bordered class="app-header">

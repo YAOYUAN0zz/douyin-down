@@ -6,6 +6,8 @@
   --dd-text: #1f2329;
   --dd-text-secondary: #6b7280;
   --dd-border: #e5e7eb;
+  --dd-accent-fill: #8acbf4;
+  --dd-accent-text: #173e58;
   --dd-radius: 8px;
   --dd-space-1: 4px;
   --dd-space-2: 8px;
@@ -14,7 +16,7 @@
   --dd-space-6: 24px;
   /* JSON 树着色（元数据查看器） */
   --dd-json-key: #6b21a8;
-  --dd-json-string: #15803d;
+  --dd-json-string: #25698f;
   --dd-json-number: #1d4ed8;
   --dd-json-bool: #b45309;
 }
@@ -26,7 +28,7 @@ html[data-theme="dark"] {
   --dd-text-secondary: #9ca3af;
   --dd-border: #2d2d33;
   --dd-json-key: #c4b5fd;
-  --dd-json-string: #86efac;
+  --dd-json-string: #9bd4f8;
   --dd-json-number: #93c5fd;
   --dd-json-bool: #fcd34d;
 }

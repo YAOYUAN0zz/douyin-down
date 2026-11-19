@@ -253,8 +253,8 @@ const metaRows = computed<Array<{ label: string; value: string }>>(() => {
   position: absolute;
   right: var(--dd-space-2);
   top: var(--dd-space-2);
-  background: rgba(24, 160, 88, 0.9);
-  color: #fff;
+  background: var(--dd-accent-fill);
+  color: var(--dd-accent-text);
   border-radius: 4px;
   padding: 1px 6px;
   font-size: 11px;
